@@ -34,7 +34,7 @@ Zlib.deflate = function(str) {
   // Flags
   fdict = 0;
   if (cm === CompressionMethod.DEFLATE) {
-    flevel = 0
+    flevel = 0;
   } else {
     flevel = 0;
   }
@@ -70,7 +70,7 @@ var CompressionMethod = {
  * Adler32 ハッシュ値の更新
  * @param {number} adler 現在のハッシュ値.
  * @param {string} str 更新に使用する文字列.
- * @return {number} Adler32 ハッシュ値
+ * @return {number} Adler32 ハッシュ値.
  */
 function updateAdler32(adler, str) {
   var s1 = adler & 0xffff;
@@ -158,7 +158,7 @@ function makeDeflateBlock(blockString, isFinalBlock) {
 
   // header
   bfinal = isFinalBlock ? 1 : 0;
-  btype  = 0; // 非圧縮
+  btype = 0; // 非圧縮
 
   block.push(
     (bfinal << 0) | (btype << 2)
@@ -169,8 +169,10 @@ function makeDeflateBlock(blockString, isFinalBlock) {
   nlen = (~len + 0x10000) & 0xffff;
 
   block.push(
-     len & 0xff, ( len >>> 8) & 0xff,
-    nlen & 0xff, (nlen >>> 8) & 0xff
+             len & 0xff,
+     (len >>> 8) & 0xff,
+            nlen & 0xff,
+    (nlen >>> 8) & 0xff
   );
 
   // data

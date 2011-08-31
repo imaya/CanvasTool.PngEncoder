@@ -123,7 +123,7 @@ function Canvas2PNG(canvas, opt_param) {
 
   // バリデーション
   this.validate_();
-};
+}
 
 /**
  * チャンクタイプ
@@ -341,6 +341,8 @@ Canvas2PNG.prototype.validate_ = function() {
     case Canvas2PNG.ColourType.TRUECOLOR_WITH_ALPHA:
       allowDepth = [8, 16];
       break;
+    default:
+      throw 'invalid colour type';
   }
 
   for (i = 0, l = allowDepth.length; i < l; i++) {
@@ -353,7 +355,7 @@ Canvas2PNG.prototype.validate_ = function() {
   if (isArrow === false) {
     throw 'invalid parameter';
   }
-}
+};
 
 /**
  * PNG の作成
@@ -506,11 +508,8 @@ Canvas2PNG.prototype.makeImageArray = function(canvasArray) {
       }
 
       break;
-  }
-
-  for (index = 0, length = imageArray.length; index < length; index++) {
-    if (imageArray[index][0] !== 0) {
-    }
+    default:
+      throw 'invalid colour type';
   }
 
   return {
@@ -703,7 +702,7 @@ Canvas2PNG.prototype.maketRNS_ = function(palette) {
     Canvas2PNG.ChunkType.TRNS,
     alphaPalette.join('')
   );
-}
+};
 
 /**
  * Pass
