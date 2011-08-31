@@ -1,11 +1,7 @@
 /**
  * canvas2png.js
- *
  * @author imaya <imaya.devel@gmail.com>
  */
-
-// XXX: TODO: ImageMagick で 8 ビットグレースケールのインタレース画像を作ってみ
-// てデータ配列を研究する
 (function(global) {
 
 'use strict';

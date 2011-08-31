@@ -1,6 +1,6 @@
 /**
  * zlib.deflate.js
- * Author: imaya <imaya.devel@gmail.com>
+ * @author imaya <imaya.devel@gmail.com>
  */
 (function(global) {
 
