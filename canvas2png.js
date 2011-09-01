@@ -941,15 +941,18 @@ Canvas2PNG.prototype.paethPredictor_ = function(a, b, c) {
  * @private
  */
 Canvas2PNG.prototype.slice_ = function(arraylike, start, length) {
-  var result;
+  var result, arraylength = arraylike.length;
 
   if (typeof(arraylike) === 'array') {
-    return arraylike.slice(start, length);
+    return arraylike.slice(start, start + length);
   }
 
   result = [];
 
   for (var i = 0; i < length; i++) {
+    if (start + i >= arraylength) {
+      break;
+    }
     result.push(arraylike[start + i]);
   }
 
