@@ -662,7 +662,7 @@ Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
   // データの圧縮
   switch (this.compressionMethod) {
     case Canvas2PNG.CompressionMethod.DEFLATE:
-      idat = Zlib.deflate(idat.join(''));
+      idat = String.fromCharCode.apply(this, Zlib.Deflate.compress(idat.join('')));
       break;
     default:
       throw 'unknown compression method';
