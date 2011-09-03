@@ -286,9 +286,31 @@ function RawDeflate() {
 }
 
 /**
+ * 固定ハフマン符号の符号化テーブル
+ * @type {Array.<number, number>}
+ * @const
+ */
+RawDeflate.FixedHuffmanTable = (function() {
+  var table = [], i;
+
+  for (i = 0; i <= 288; i++) {
+    switch (true) {
+      case (i <= 143): table.push([i -   0 + 0x030, 8]); break;
+      case (i <= 255): table.push([i - 144 + 0x190, 9]); break;
+      case (i <= 279): table.push([i - 256 + 0x000, 7]); break;
+      case (i <= 287): table.push([i - 280 + 0x0C0, 8]); break;
+      default:
+        'invalid literal';
+    }
+  }
+
+  return table;
+})();
+
+/**
  * 固定ハフマン符号化
  * @param {Array} dataArray LZSS 符号化済み byte array.
- * @param {BitStream} stream 書き込み用ビットストリーム.
+ * @param {BitStream=} stream 書き込み用ビットストリーム.
  * @return {Array} ハフマン符号化済み byte array.
  */
 RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
@@ -298,41 +320,27 @@ RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
     stream = new BitStream();
   }
 
+  // 符号を BitStream に書き込んでいく
   for (index = 0, length = dataArray.length; index < length; index++) {
     literal = dataArray[index];
 
-    switch (true) {
-      case (literal <= 143): bitlen = 8; code = (literal -   0) + 0x030; break;
-      case (literal <= 255): bitlen = 9; code = (literal - 144) + 0x190; break;
-      case (literal <= 279): bitlen = 7; code = (literal - 256) + 0x000; break;
-      case (literal <= 287): bitlen = 8; code = (literal - 280) + 0x0C0; break;
-      default:
-        throw 'invalid literal';
-    }
+    // 符号の書き込み
+    BitStream.prototype.writeBits.apply(
+      stream,
+      RawDeflate.FixedHuffmanTable[literal]//.concat(true)
+    );
 
-    stream.writeBits(code, bitlen);
-
-    // 終端
-    if (literal === 0x100) {
-      break;
-    }
-
-    // 長さ・距離符号の先頭を見つけたらその分処理
+    // 長さ・距離符号
     if (literal > 0x100) {
-      // extra bit
-      bitlen = dataArray[++index];
-      extra = dataArray[++index];
-      stream.writeBits(extra, bitlen, true);
-
+      // length extra
+      stream.writeBits(dataArray[++index], dataArray[++index], true);
       // distance
-      code = dataArray[++index];
-      bitlen = 5; // 固定ハフマンは距離は 5bit 固定
-      stream.writeBits(code, bitlen);
-
-      // extra bit
-      bitlen = dataArray[++index];
-      extra = dataArray[++index];
-      stream.writeBits(extra, bitlen, true);
+      stream.writeBits(dataArray[++index], 5);
+      // distance extra
+      stream.writeBits(dataArray[++index], dataArray[++index], true);
+    // 終端
+    } else if (literal === 0x100) {
+      break;
     }
   }
 
@@ -372,6 +380,97 @@ function LzssMatch(length, backwordDistance) {
 }
 
 /**
+ * 長さ符号テーブル
+ * @param {number} length 長さ
+ * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列
+ * @private
+ */
+LzssMatch.prototype.getLengthCode_ = function(length) {
+  var r;
+
+    switch (true) {
+      case (length === 3): r = [257, length - 3, 0]; break;
+      case (length === 4): r = [258, length - 4, 0]; break;
+      case (length === 5): r = [259, length - 5, 0]; break;
+      case (length === 6): r = [260, length - 6, 0]; break;
+      case (length === 7): r = [261, length - 7, 0]; break;
+      case (length === 8): r = [262, length - 8, 0]; break;
+      case (length === 9): r = [263, length - 9, 0]; break;
+      case (length === 10): r = [264, length - 10, 0]; break;
+      case (length <= 12): r = [265, length - 11, 1]; break;
+      case (length <= 14): r = [266, length - 13, 1]; break;
+      case (length <= 16): r = [267, length - 15, 1]; break;
+      case (length <= 18): r = [268, length - 17, 1]; break;
+      case (length <= 22): r = [269, length - 19, 2]; break;
+      case (length <= 26): r = [270, length - 23, 2]; break;
+      case (length <= 30): r = [271, length - 27, 2]; break;
+      case (length <= 34): r = [272, length - 31, 2]; break;
+      case (length <= 42): r = [273, length - 35, 3]; break;
+      case (length <= 50): r = [274, length - 43, 3]; break;
+      case (length <= 58): r = [275, length - 51, 3]; break;
+      case (length <= 66): r = [276, length - 59, 3]; break;
+      case (length <= 82): r = [277, length - 67, 4]; break;
+      case (length <= 98): r = [278, length - 83, 4]; break;
+      case (length <= 114): r = [279, length - 99, 4]; break;
+      case (length <= 130): r = [280, length - 115, 4]; break;
+      case (length <= 162): r = [281, length - 131, 5]; break;
+      case (length <= 194): r = [282, length - 163, 5]; break;
+      case (length <= 226): r = [283, length - 195, 5]; break;
+      case (length <= 257): r = [284, length - 227, 5]; break;
+      case (length === 258): r = [285, length - 258, 0]; break;
+      default: throw 'invalid length';
+    }
+
+  return r;
+};
+
+/**
+ * 距離符号テーブル
+ * @param {number} dist 距離
+ * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列
+ * @private
+ */
+LzssMatch.prototype.getDistanceCode_ = function(dist) {
+  var r;
+
+  switch (true) {
+    case (dist === 1): r = [0, dist - 1, 0]; break;
+    case (dist === 2): r = [1, dist - 2, 0]; break;
+    case (dist === 3): r = [2, dist - 3, 0]; break;
+    case (dist === 4): r = [3, dist - 4, 0]; break;
+    case (dist <= 6): r = [4, dist - 5, 1]; break;
+    case (dist <= 8): r = [5, dist - 7, 1]; break;
+    case (dist <= 12): r = [6, dist - 9, 2]; break;
+    case (dist <= 16): r = [7, dist - 13, 2]; break;
+    case (dist <= 24): r = [8, dist - 17, 3]; break;
+    case (dist <= 32): r = [9, dist - 25, 3]; break;
+    case (dist <= 48): r = [10, dist - 33, 4]; break;
+    case (dist <= 64): r = [11, dist - 49, 4]; break;
+    case (dist <= 96): r = [12, dist - 65, 5]; break;
+    case (dist <= 128): r = [13, dist - 97, 5]; break;
+    case (dist <= 192): r = [14, dist - 129, 6]; break;
+    case (dist <= 256): r = [15, dist - 193, 6]; break;
+    case (dist <= 384): r = [16, dist - 257, 7]; break;
+    case (dist <= 512): r = [17, dist - 385, 7]; break;
+    case (dist <= 768): r = [18, dist - 513, 8]; break;
+    case (dist <= 1024): r = [19, dist - 769, 8]; break;
+    case (dist <= 1536): r = [20, dist - 1025, 9]; break;
+    case (dist <= 2048): r = [21, dist - 1537, 9]; break;
+    case (dist <= 3072): r = [22, dist - 2049, 10]; break;
+    case (dist <= 4096): r = [23, dist - 3073, 10]; break;
+    case (dist <= 6144): r = [24, dist - 4097, 11]; break;
+    case (dist <= 8192): r = [25, dist - 6145, 11]; break;
+    case (dist <= 12288): r = [26, dist - 8193, 12]; break;
+    case (dist <= 16384): r = [27, dist - 12289, 12]; break;
+    case (dist <= 24576): r = [28, dist - 16385, 13]; break;
+    case (dist <= 32768): r = [29, dist - 24577, 13]; break;
+    default: throw 'invalid distance';
+  }
+
+  return r;
+};
+
+/**
  * マッチ情報を LZSS 符号化配列で返す.
  * なお、ここでは以下の内部仕様で符号化している
  * [ CODE, EXTRA-BIT-LEN, EXTRA, CODE, EXTRA-BIT-LEN, EXTRA ]
@@ -380,88 +479,14 @@ function LzssMatch(length, backwordDistance) {
 LzssMatch.prototype.toLzssArray = function() {
   var length = this.length,
       dist = this.backwordDistance,
-      codeArray = [], code, extralen, extra;
+      codeArray = [];
 
   // length
-  switch (true) {
-    //---------------------------------------------------------------
-    //   LENGTH            CODE        EXTRA-BIT-LEN  EXTRA-BIT-BASE
-    //---------------------------------------------------------------
-    case (length ===   3): code = 257; extralen = 0;  extra =    3; break;
-    case (length ===   4): code = 258; extralen = 0;  extra =    4; break;
-    case (length ===   5): code = 259; extralen = 0;  extra =    5; break;
-    case (length ===   6): code = 260; extralen = 0;  extra =    6; break;
-    case (length ===   7): code = 261; extralen = 0;  extra =    7; break;
-    case (length ===   8): code = 262; extralen = 0;  extra =    8; break;
-    case (length ===   9): code = 263; extralen = 0;  extra =    9; break;
-    case (length ===  10): code = 264; extralen = 0;  extra =   10; break;
-    case (length <=   12): code = 265; extralen = 1;  extra =   11; break;
-    case (length <=   14): code = 266; extralen = 1;  extra =   13; break;
-    case (length <=   16): code = 267; extralen = 1;  extra =   15; break;
-    case (length <=   18): code = 268; extralen = 1;  extra =   17; break;
-    case (length <=   22): code = 269; extralen = 2;  extra =   19; break;
-    case (length <=   26): code = 270; extralen = 2;  extra =   23; break;
-    case (length <=   30): code = 271; extralen = 2;  extra =   27; break;
-    case (length <=   34): code = 272; extralen = 2;  extra =   31; break;
-    case (length <=   42): code = 273; extralen = 3;  extra =   35; break;
-    case (length <=   50): code = 274; extralen = 3;  extra =   43; break;
-    case (length <=   58): code = 275; extralen = 3;  extra =   51; break;
-    case (length <=   66): code = 276; extralen = 3;  extra =   59; break;
-    case (length <=   82): code = 277; extralen = 4;  extra =   67; break;
-    case (length <=   98): code = 278; extralen = 4;  extra =   83; break;
-    case (length <=  114): code = 279; extralen = 4;  extra =   99; break;
-    case (length <=  130): code = 280; extralen = 4;  extra =  115; break;
-    case (length <=  162): code = 281; extralen = 5;  extra =  131; break;
-    case (length <=  194): code = 282; extralen = 5;  extra =  163; break;
-    case (length <=  226): code = 283; extralen = 5;  extra =  195; break;
-    case (length <=  257): code = 284; extralen = 5;  extra =  227; break;
-    case (length === 258): code = 285; extralen = 0;  extra =  258; break;
-    default:
-      throw 'invalid length';
-  }
-  extra = (length - extra) & ((1 << extralen) - 1);
-  codeArray.push(code, extralen, extra);
+  Array.prototype.push.apply(codeArray, this.getLengthCode_(length));
 
   // distance
-  switch (true) {
-    //------------------------------------------------------------------
-    //   DISTANCE         CODE       EXTRA-BIT-LEN  EXTRA-BIT-BASE
-    //------------------------------------------------------------------
-    case (dist ===    1): code =  0; extralen =  0; extra =     1; break;
-    case (dist ===    2): code =  1; extralen =  0; extra =     2; break;
-    case (dist ===    3): code =  2; extralen =  0; extra =     3; break;
-    case (dist ===    4): code =  3; extralen =  0; extra =     4; break;
-    case (dist <=     6): code =  4; extralen =  1; extra =     5; break;
-    case (dist <=     8): code =  5; extralen =  1; extra =     7; break;
-    case (dist <=    12): code =  6; extralen =  2; extra =     9; break;
-    case (dist <=    16): code =  7; extralen =  2; extra =    13; break;
-    case (dist <=    24): code =  8; extralen =  3; extra =    17; break;
-    case (dist <=    32): code =  9; extralen =  3; extra =    25; break;
-    case (dist <=    48): code = 10; extralen =  4; extra =    33; break;
-    case (dist <=    64): code = 11; extralen =  4; extra =    49; break;
-    case (dist <=    96): code = 12; extralen =  5; extra =    65; break;
-    case (dist <=   128): code = 13; extralen =  5; extra =    97; break;
-    case (dist <=   192): code = 14; extralen =  6; extra =   129; break;
-    case (dist <=   256): code = 15; extralen =  6; extra =   193; break;
-    case (dist <=   384): code = 16; extralen =  7; extra =   257; break;
-    case (dist <=   512): code = 17; extralen =  7; extra =   385; break;
-    case (dist <=   768): code = 18; extralen =  8; extra =   513; break;
-    case (dist <=  1024): code = 19; extralen =  8; extra =   769; break;
-    case (dist <=  1536): code = 20; extralen =  9; extra =  1025; break;
-    case (dist <=  2048): code = 21; extralen =  9; extra =  1537; break;
-    case (dist <=  3072): code = 22; extralen = 10; extra =  2049; break;
-    case (dist <=  4096): code = 23; extralen = 10; extra =  3073; break;
-    case (dist <=  6144): code = 24; extralen = 11; extra =  4097; break;
-    case (dist <=  8192): code = 25; extralen = 11; extra =  6145; break;
-    case (dist <= 12288): code = 26; extralen = 12; extra =  8193; break;
-    case (dist <= 16384): code = 27; extralen = 12; extra = 12289; break;
-    case (dist <= 24576): code = 28; extralen = 13; extra = 16385; break;
-    case (dist <= 32768): code = 29; extralen = 13; extra = 24577; break;
-    default:
-      throw 'invalid distance';
-  }
-  extra = (dist - extra) & ((1 << extralen) - 1);
-  codeArray.push(code, extralen, extra);
+  Array.prototype.push.apply(codeArray, this.getDistanceCode_(dist));
+
 
   return codeArray;
 };
