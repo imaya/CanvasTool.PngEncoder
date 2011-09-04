@@ -546,83 +546,22 @@ Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
       filterMethod = this.filterMethod,
       filterType = this.filterType,
       interlaceMethod = this.interlaceMethod,
-      width, y, lines, line, dataWidth, withAlpha,
+      width, y, lines, line, bpp,
       passlist, pass, index, length;
 
-  // α付きかどうか
-  withAlpha = (this.colourType & 0x04) > 0;
-
   // インターレースの決定
-  switch (interlaceMethod) {
-    case Canvas2PNG.InterlaceMethod.NONE:
-      this.interlace_ = this.interlaceNone_;
-      break; // XXX
-    case Canvas2PNG.InterlaceMethod.ADAM7:
-      this.interlace_ = this.interlaceAdam7_;
-      break;
-    default:
-      throw 'TODO';
-  }
+  this.interlace_ = this.getInterlace_();
 
   // フィルタの決定
-  switch (filterMethod) {
-    case Canvas2PNG.FilterMethod.BASIC:
-      switch (filterType) {
-        case Canvas2PNG.BasicFilterType.NONE:
-          this.filter_ = this.filterNone_;
-          break;
-        case Canvas2PNG.BasicFilterType.SUB:
-          this.filter_ = this.filterSub_;
-          break;
-        case Canvas2PNG.BasicFilterType.UP:
-          this.filter_ = this.filterUp_;
-          break;
-        case Canvas2PNG.BasicFilterType.AVERAGE:
-          this.filter_ = this.filterAverage_;
-          break;
-        case Canvas2PNG.BasicFilterType.PAETH:
-          this.filter_ = this.filterPaeth_;
-          break;
-        default:
-          throw 'TODO';
-      }
-      break;
-    default:
-      throw 'unknown filter method';
-  }
+  this.filter_ = this.getFilter_();
 
   // データ幅を決定する(左のピクセルの Byte との距離)
-  switch (this.colourType) {
-    case Canvas2PNG.ColourType.INDEXED_COLOR:
-      dataWidth = 1;
-      break;
-    case Canvas2PNG.ColourType.GRAYSCALE:
-    case Canvas2PNG.ColourType.GRAYSCALE_WITH_ALPHA:
-      dataWidth = 1;
-      if (withAlpha) {
-        dataWidth += 1;
-      }
-      if (this.bitDepth === 16) {
-        dataWidth *= 2;
-      }
-      break;
-    case Canvas2PNG.ColourType.TRUECOLOR:
-    case Canvas2PNG.ColourType.TRUECOLOR_WITH_ALPHA:
-      dataWidth = 3;
-      if (withAlpha) {
-        dataWidth += 1;
-      }
-      if (this.bitDepth === 16) {
-        dataWidth *= 2;
-      }
-      break;
-    default:
-      throw 'unknown colour type';
-  }
+  bpp = this.getBytesPerCompletePixel_();
 
   // インターレース処理 (パスの作成)
   passlist = this.interlace_(imageArray);
 
+  // 各パスの処理
   for (index = 0, length = passlist.length; index < length; index++) {
     pass = passlist[index];
     imageArray = pass.pixelArray;
@@ -646,7 +585,7 @@ Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
       switch (filterMethod) {
         case Canvas2PNG.FilterMethod.BASIC:
           idat.push(filterType);
-          push_(idat, this.filter_(line, dataWidth));
+          push_(idat, this.filter_(line, bpp));
           break;
         default:
           throw 'unknown filter method';
@@ -701,8 +640,73 @@ Canvas2PNG.prototype.maketRNS_ = function(palette) {
   );
 };
 
+
+/**
+ * bytes per complete pixel (bpp) の取得
+ * @return {number} bpp.
+ * @private
+ */
+Canvas2PNG.prototype.getBytesPerCompletePixel_ = function() {
+  var bpp, withAlpha = (this.colourType & 0x04) > 0;
+
+  switch (this.colourType) {
+    case Canvas2PNG.ColourType.INDEXED_COLOR:
+      bpp = 1;
+      break;
+    case Canvas2PNG.ColourType.GRAYSCALE:
+    case Canvas2PNG.ColourType.GRAYSCALE_WITH_ALPHA:
+      bpp = 1;
+      if (withAlpha) {
+        bpp += 1;
+      }
+      if (this.bitDepth === 16) {
+        bpp *= 2;
+      }
+      break;
+    case Canvas2PNG.ColourType.TRUECOLOR:
+    case Canvas2PNG.ColourType.TRUECOLOR_WITH_ALPHA:
+      bpp = 3;
+      if (withAlpha) {
+        bpp += 1;
+      }
+      if (this.bitDepth === 16) {
+        bpp *= 2;
+      }
+      break;
+    default:
+      throw 'unknown colour type';
+  }
+
+  return bpp;
+};
+
+/**
+ * インターレースメソッドの取得
+ * @return {function(Array):Array.<Canvas2PNG.Pass_>} 描画パスのリスト.
+ * @private
+ */
+Canvas2PNG.prototype.getInterlace_ = function() {
+  var interlace;
+
+  switch (this.interlaceMethod) {
+    case Canvas2PNG.InterlaceMethod.NONE:
+      interlace = this.interlaceNone_;
+      break;
+    case Canvas2PNG.InterlaceMethod.ADAM7:
+      interlace = this.interlaceAdam7_;
+      break;
+    default:
+      throw 'TODO';
+  }
+
+  return interlace;
+};
+
 /**
  * Pass
+ * @param {number} width パスの横幅.
+ * @param {number} height パスの縦幅.
+ * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
  * @constructor
  */
 Canvas2PNG.Pass_ = function(width, height, pixelArray) {
@@ -713,6 +717,9 @@ Canvas2PNG.Pass_ = function(width, height, pixelArray) {
 
 /**
  * Interlace None
+ * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
+ * @return {Array.<Canvas2PNG.Pass_>} 描画パスのリスト.
+ * @private
  */
 Canvas2PNG.prototype.interlaceNone_ = function(imageArray) {
   return [new Canvas2PNG.Pass_(this.width, this.height, imageArray)];
@@ -720,6 +727,9 @@ Canvas2PNG.prototype.interlaceNone_ = function(imageArray) {
 
 /**
  * Interlace Adam7
+ * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
+ * @return {Array.<Canvas2PNG.Pass_>} 描画パスのリスト.
+ * @private
  */
 Canvas2PNG.prototype.interlaceAdam7_ = function(imageArray) {
   var height = this.height,
@@ -809,6 +819,43 @@ Canvas2PNG.prototype.pixelArrayToByteArray_ = function(imageArray) {
   }
 
   return byteArray;
+};
+
+/**
+ * フィルタメソッドの取得
+ * @return {function(Array.<number>, number):Array}
+ * @private
+ */
+Canvas2PNG.prototype.getFilter_ = function() {
+  var filter;
+
+  switch (this.filterMethod) {
+    case Canvas2PNG.FilterMethod.BASIC:
+      switch (this.filterType) {
+        case Canvas2PNG.BasicFilterType.NONE:
+          filter = this.filterNone_;
+          break;
+        case Canvas2PNG.BasicFilterType.SUB:
+          filter = this.filterSub_;
+          break;
+        case Canvas2PNG.BasicFilterType.UP:
+          filter = this.filterUp_;
+          break;
+        case Canvas2PNG.BasicFilterType.AVERAGE:
+          filter = this.filterAverage_;
+          break;
+        case Canvas2PNG.BasicFilterType.PAETH:
+          filter = this.filterPaeth_;
+          break;
+        default:
+          throw 'TODO';
+      }
+      break;
+    default:
+      throw 'unknown filter method';
+  }
+
+  return filter;
 };
 
 /**
