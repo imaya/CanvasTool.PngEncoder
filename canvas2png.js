@@ -94,7 +94,7 @@ function Canvas2PNG(canvas, opt_param) {
 
   /**
    * フィルタメソッド
-   * @type {function(Array, number):string}
+   * @type {function(Array, number):Array}
    * @private
    */
   this.filter_;
@@ -197,8 +197,7 @@ Canvas2PNG.InterlaceMethod = {
  * PNG フォーマットのシグネチャ
  * @const
  */
-Canvas2PNG.Signature =
-  String.fromCharCode(137, 80, 78, 71, 13, 10, 26, 10);
+Canvas2PNG.Signature = [137, 80, 78, 71, 13, 10, 26, 10];
 
 /**
  * 輝度変換に使用する赤の重み
@@ -297,7 +296,7 @@ Canvas2PNG.Adam7Table_ = [
  * @return {string} PNGバイナリ.
  */
 Canvas2PNG.prototype.convert = function() {
-  return this.makePng_();
+  return String.fromCharCode.apply(this, this.makePng_());
 };
 
 /**
@@ -359,24 +358,24 @@ Canvas2PNG.prototype.validate_ = function() {
 
 /**
  * PNG の作成
- * @return {string} PNG バイナリ文字列.
+ * @return {Array} PNG バイナリ byte array.
  * @private
  */
 Canvas2PNG.prototype.makePng_ = function() {
   var png = [], imageInfo;
 
-  png.push(Canvas2PNG.Signature);
-  png.push(this.makeIHDR_());
+  push_(png, Canvas2PNG.Signature);
+  push_(png, this.makeIHDR_());
 
   imageInfo = this.makeImageArray(
     this.ctx.getImageData(0, 0, this.width, this.height).data
   );
+
   switch (this.colourType) {
     case Canvas2PNG.ColourType.INDEXED_COLOR:
-      png.push(this.makePLTE_(imageInfo.PLTE));
-      //XXX if (this.saveAlpha) {
-      if (true) {
-        png.push(this.maketRNS_(imageInfo.tRNS));
+      push_(png, this.makePLTE_(imageInfo.PLTE));
+      if (this.saveAlpha) {
+        push_(png, this.maketRNS_(imageInfo.tRNS));
       }
       break;
     case Canvas2PNG.ColourType.GRAYSCALE:
@@ -388,27 +387,29 @@ Canvas2PNG.prototype.makePng_ = function() {
       throw 'TODO';
   }
 
-  png.push(this.makeIDAT_(imageInfo.IDAT));
-  png.push(this.makeIEND_());
+  push_(png, this.makeIDAT_(imageInfo.IDAT));
+  push_(png, this.makeIEND_());
 
-  return png.join('');
+  return png;
 };
 
 /**
  * Image Header
- * @return {string} IHDR チャンクバイナリ文字列.
+ * @return {Array} IHDR チャンクバイナリ byte array.
  * @private
  */
 Canvas2PNG.prototype.makeIHDR_ = function() {
-  return this.makeChunk_(Canvas2PNG.ChunkType.IHDR, [
-    this.convertNetworkByteOrder_(this.width, 4),
-    this.convertNetworkByteOrder_(this.height, 4),
-    this.convertNetworkByteOrder_(this.bitDepth, 1),
-    this.convertNetworkByteOrder_(this.colourType, 1),
-    this.convertNetworkByteOrder_(this.compressionMethod, 1),
-    this.convertNetworkByteOrder_(this.filterMethod, 1),
-    this.convertNetworkByteOrder_(this.interlaceMethod, 1)
-  ].join(''));
+  var data = [];
+
+  push_(data, this.convertNetworkByteOrder_(this.width, 4));
+  push_(data, this.convertNetworkByteOrder_(this.height, 4));
+  push_(data, this.convertNetworkByteOrder_(this.bitDepth, 1));
+  push_(data, this.convertNetworkByteOrder_(this.colourType, 1));
+  push_(data, this.convertNetworkByteOrder_(this.compressionMethod, 1));
+  push_(data, this.convertNetworkByteOrder_(this.filterMethod, 1));
+  push_(data, this.convertNetworkByteOrder_(this.interlaceMethod, 1));
+
+  return this.makeChunk_(Canvas2PNG.ChunkType.IHDR, data);
 };
 
 /**
@@ -521,7 +522,7 @@ Canvas2PNG.prototype.makeImageArray = function(canvasArray) {
 
 /**
  * Palette
- * @return {string} PLTE チャンクバイナリ文字列.
+ * @return {Array} PLTE チャンクバイナリ byte array.
  * @private
  */
 Canvas2PNG.prototype.makePLTE_ = function(palette) {
@@ -530,14 +531,14 @@ Canvas2PNG.prototype.makePLTE_ = function(palette) {
   }
   return this.makeChunk_(
     Canvas2PNG.ChunkType.PLTE,
-    palette.join('')
+    palette
   );
 };
 
 /**
  * Image Data
  * @param {Array} imageArray イメージのバイナリ配列.
- * @return {string} IDAT チャンクバイナリ文字列.
+ * @return {Array} IDAT チャンクバイナリ Array.
  * @private
  */
 Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
@@ -644,12 +645,8 @@ Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
 
       switch (filterMethod) {
         case Canvas2PNG.FilterMethod.BASIC:
-          idat.push(this.convertNetworkByteOrder_(filterType, 1));
-          // TODO:
-          // 各フィルタでのjoin('')をやめて
-          // idat.push.apply(this, this.filter_(line));
-          // にしたときの速度と比較して速いほうを採用する
-          idat.push(this.filter_(line, dataWidth));
+          idat.push(filterType);
+          push_(idat, this.filter_(line, dataWidth));
           break;
         default:
           throw 'unknown filter method';
@@ -662,7 +659,7 @@ Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
   // データの圧縮
   switch (this.compressionMethod) {
     case Canvas2PNG.CompressionMethod.DEFLATE:
-      idat = String.fromCharCode.apply(this, Zlib.Deflate.compress(idat.join('')));
+      idat = Zlib.Deflate.compress(idat);
       break;
     default:
       throw 'unknown compression method';
@@ -673,11 +670,11 @@ Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
 
 /**
  * Image End
- * @return {string} IEND チャンクバイナリ文字列.
+ * @return {Array} IEND チャンクバイナリ Array.
  * @private
  */
 Canvas2PNG.prototype.makeIEND_ = function() {
-  return this.makeChunk_(Canvas2PNG.ChunkType.IEND, '');
+  return this.makeChunk_(Canvas2PNG.ChunkType.IEND, []);
 };
 
 /**
@@ -700,7 +697,7 @@ Canvas2PNG.prototype.maketRNS_ = function(palette) {
 
   return this.makeChunk_(
     Canvas2PNG.ChunkType.TRNS,
-    alphaPalette.join('')
+    alphaPalette
   );
 };
 
@@ -818,13 +815,13 @@ Canvas2PNG.prototype.pixelArrayToByteArray_ = function(imageArray) {
  * Filter None
  * @param {Array.<number>} imageLine line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {string} filtered line string.
+ * @return {Array} filtered line byte array.
  * @private
  */
 Canvas2PNG.prototype.filterNone_ = function(imageLine, sub) {
   var filteredImageLine = imageLine;
 
-  filteredImageLine = String.fromCharCode.apply(this, imageLine);
+  filteredImageLine = imageLine;
 
   return filteredImageLine;
 };
@@ -833,7 +830,7 @@ Canvas2PNG.prototype.filterNone_ = function(imageLine, sub) {
  * Filter Sub
  * @param {Array.<number>} imageLine line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {string} filtered line string.
+ * @return {Array} filtered line byte array.
  * @private
  */
 Canvas2PNG.prototype.filterSub_ = function(imageLine, sub) {
@@ -844,14 +841,14 @@ Canvas2PNG.prototype.filterSub_ = function(imageLine, sub) {
     filteredImageLine.push((imageLine[index] - left + 0x0100) & 0xff);
   }
 
-  return String.fromCharCode.apply(this, filteredImageLine);
+  return filteredImageLine;
 };
 
 /**
  * Filter Up
  * @param {Array.<number>} imageLine line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {string} filtered line string.
+ * @return {Array} filtered line byte array.
  * @private
  */
 Canvas2PNG.prototype.filterUp_ = function(imageLine, sub) {
@@ -862,14 +859,14 @@ Canvas2PNG.prototype.filterUp_ = function(imageLine, sub) {
     filteredImageLine.push((imageLine[index] - up + 0x0100) & 0xff);
   }
 
-  return String.fromCharCode.apply(this, filteredImageLine);
+  return filteredImageLine;
 };
 
 /**
  * Filter Average
  * @param {Array.<number>} imageLine line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {string} filtered line string.
+ * @return {Array} filtered line byte array.
  * @private
  */
 Canvas2PNG.prototype.filterAverage_ = function(imageLine, sub) {
@@ -885,14 +882,14 @@ Canvas2PNG.prototype.filterAverage_ = function(imageLine, sub) {
     filteredImageLine.push((imageLine[index] + 0x0100 - average) & 0xff);
   }
 
-  return String.fromCharCode.apply(this, filteredImageLine);
+  return filteredImageLine;
 };
 
 /**
  * Filter Paeth
  * @param {Array.<number>} imageLine line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {string} filtered line string.
+ * @return {Array} filtered line byte array.
  * @private
  */
 Canvas2PNG.prototype.filterPaeth_ = function(imageLine, sub) {
@@ -909,7 +906,7 @@ Canvas2PNG.prototype.filterPaeth_ = function(imageLine, sub) {
     filteredImageLine.push((imageLine[index] - paeth + 0x0100) & 0xff);
   }
 
-  return String.fromCharCode.apply(this, filteredImageLine);
+  return filteredImageLine;
 };
 
 /**
@@ -962,26 +959,39 @@ Canvas2PNG.prototype.slice_ = function(arraylike, start, length) {
 /**
  * チャンクの作成
  * @param {canvas2png.ChunkType} type Chunk type.
- * @param {string} data Chunk data.
- * @return {string} Chunk string.
+ * @param {Array} data Chunk data byte array.
+ * @return {Array} Chunk byte array.
  * @private
  */
 Canvas2PNG.prototype.makeChunk_ = function(type, data) {
-  var length = data.length;
+  var chunk = [], length = data.length;
 
-  return [
-    /* Length*/ this.convertNetworkByteOrder_(length, 4),
-    /* Type  */ type,
-    /* Data  */ data,
-    /* CRC   */ this.convertNetworkByteOrder_(this.getCRC32_(type + data), 4)
-  ].join('');
+  // XXX チャンクタイプは文字列ではなくバイト列で宣言するか？
+  type = type.split('').map(function(c) { return c.charCodeAt(0); });
+
+  // Length*
+  push_(chunk,
+      this.convertNetworkByteOrder_(length, 4));
+  // Type
+  push_(chunk, type);
+  // Data
+  push_(chunk, data);
+  // CRC
+  // data の方が一般的には大きくなるため data に type を結合する
+  unshift_(data, type);
+  push_(
+    chunk,
+    this.convertNetworkByteOrder_(this.getCRC32_(data), 4)
+  );
+
+  return chunk;
 };
 
 /**
  * network byte order integer
  * @param {number} number source number.
  * @param {number=} size size.
- * @return {string} network byte order string.
+ * @return {Array} network byte order byte array.
  * @private
  */
 Canvas2PNG.prototype.convertNetworkByteOrder_ = function(number, size) {
@@ -989,23 +999,23 @@ Canvas2PNG.prototype.convertNetworkByteOrder_ = function(number, size) {
 
   do {
     octet = number & 0xff;
-    tmp.unshift(String.fromCharCode(octet));
+    tmp.unshift(octet);
     number >>>= 8;
   } while (number > 0);
 
   if (typeof(size) === 'number') {
-    nullchar = String.fromCharCode(0);
+    nullchar = 0;
     while (tmp.length < size) {
       tmp.unshift(nullchar);
     }
   }
 
-  return tmp.join('');
+  return tmp;
 };
 
 /**
  * CRC32ハッシュ値を更新
- * @param {string} data data.
+ * @param {Array} data data byte array.
  * @param {number} crc CRC32.
  * @return {number} CRC32.
  * @private
@@ -1014,7 +1024,7 @@ Canvas2PNG.prototype.updateCRC32_ = function(data, crc) {
   var octet = 0;
 
   for (var i = 0, l = data.length; i < l; i++) {
-    octet = (crc ^ data.charCodeAt(i)) & 0xff;
+    octet = (crc ^ data[i]) & 0xff;
     crc = (crc >>> 8) ^ Canvas2PNG.Crc32Table_[octet];
   }
 
@@ -1023,7 +1033,7 @@ Canvas2PNG.prototype.updateCRC32_ = function(data, crc) {
 
 /**
  * CRC32 ハッシュ値を取得
- * @param {string} data data.
+ * @param {Array} data data byte array.
  * @param {number} crc CRC32.
  * @return {number} CRC32.
  * @private
@@ -1083,6 +1093,25 @@ Canvas2PNG.prototype.fromCharCode_ = function(code) {
   return String.fromCharCode(code).charAt(0);
 };
 
+/**
+ * Array.prototype.push.apply ショートカット
+ * @param {Array} dst 結合先となる配列.
+ * @param {Array} src 結合元となる配列.
+ * @private
+ */
+var push_ = function(dst, src) {
+  return Array.prototype.push.apply(dst, src);
+};
+
+/**
+ * Array.prototype.unshift.apply ショートカット
+ * @param {Array} dst 結合先となる配列.
+ * @param {Array} src 結合元となる配列.
+ * @private
+ */
+var unshift_ = function(dst, src) {
+  return Array.prototype.unshift.apply(dst, src);
+};
 
 
 })(this);
