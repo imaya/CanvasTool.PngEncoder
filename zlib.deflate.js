@@ -616,7 +616,7 @@ function searchLongestMatch_(dataArray, position, matchList) {
     matchList = [];
   }
 
-  // 最長のマッチ候補の中で最長のものを選ぶ(拡張ビットが短く済む)
+  // 最長のマッチ候補の中で距離が最短のものを選ぶ(拡張ビットが短く済む)
   return new LzssMatch(
     matchLength + RawDeflate.LzssMinLength,
     position - Math.max.apply(this, lastMatch)

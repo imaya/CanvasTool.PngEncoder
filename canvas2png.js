@@ -419,7 +419,7 @@ Canvas2PNG.prototype.makeIHDR_ = function() {
  * @private
  */
 Canvas2PNG.prototype.makeImageArray = function(canvasArray) {
-  var imageArray = [], img = canvasArray,
+  var pixelArray = [], img = canvasArray,
       saveAlpha = this.saveAlpha,
       depth = this.bitDepth,
       palette = [], alphaPalette = [], paletteTemp = {}, revTable = {},
@@ -464,7 +464,7 @@ Canvas2PNG.prototype.makeImageArray = function(canvasArray) {
           color.push(alpha);
         }
 
-        imageArray.push(color);
+        pixelArray.push(color);
       }
       break;
     // Truecolor
@@ -473,7 +473,7 @@ Canvas2PNG.prototype.makeImageArray = function(canvasArray) {
       for (index = 0, length = canvasArray.length; index < length; index += 4) {
         tmp = this.slice_(canvasArray, index, withAlpha ? 4 : 3);
 
-        imageArray.push(tmp);
+        pixelArray.push(tmp);
       }
       break;
     // Indexed-Color
@@ -505,7 +505,7 @@ Canvas2PNG.prototype.makeImageArray = function(canvasArray) {
         } else {
           color = this.rgb2str_(this.slice_(canvasArray, index, 3));
         }
-        imageArray.push([revTable[color]]);
+        pixelArray.push([revTable[color]]);
       }
 
       break;
@@ -516,7 +516,7 @@ Canvas2PNG.prototype.makeImageArray = function(canvasArray) {
   return {
     PLTE: palette,
     tRNS: alphaPalette,
-    IDAT: imageArray
+    IDAT: pixelArray
   };
 };
 
@@ -537,11 +537,11 @@ Canvas2PNG.prototype.makePLTE_ = function(palette) {
 
 /**
  * Image Data
- * @param {Array} imageArray イメージのバイナリ配列.
+ * @param {Array} pixelArray イメージのバイナリ配列.
  * @return {Array} IDAT チャンクバイナリ Array.
  * @private
  */
-Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
+Canvas2PNG.prototype.makeIDAT_ = function(pixelArray) {
   var idat = [],
       filterMethod = this.filterMethod,
       filterType = this.filterType,
@@ -559,15 +559,15 @@ Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
   bpp = this.getBytesPerCompletePixel_();
 
   // インターレース処理 (パスの作成)
-  passlist = this.interlace_(imageArray);
+  passlist = this.interlace_(pixelArray);
 
   // 各パスの処理
   for (index = 0, length = passlist.length; index < length; index++) {
     pass = passlist[index];
-    imageArray = pass.pixelArray;
+    pixelArray = pass.pixelArray;
 
     // 空のパスはスキップする
-    if (imageArray.length === 0) {
+    if (pixelArray.length === 0) {
       continue;
     }
 
@@ -576,7 +576,7 @@ Canvas2PNG.prototype.makeIDAT_ = function(imageArray) {
     // データ領域の作成
     this.prevLine_ = null;
     for (y = 0, lines = pass.height; y < lines; y++) {
-      line = this.slice_(imageArray, y * width, width);
+      line = this.slice_(pixelArray, y * width, width);
 
       // Pixel Array -> Byte Array
       // おそらくスキャンライン単位で行うのが正しい
@@ -721,8 +721,8 @@ Canvas2PNG.Pass_ = function(width, height, pixelArray) {
  * @return {Array.<Canvas2PNG.Pass_>} 描画パスのリスト.
  * @private
  */
-Canvas2PNG.prototype.interlaceNone_ = function(imageArray) {
-  return [new Canvas2PNG.Pass_(this.width, this.height, imageArray)];
+Canvas2PNG.prototype.interlaceNone_ = function(pixelArray) {
+  return [new Canvas2PNG.Pass_(this.width, this.height, pixelArray)];
 };
 
 /**
@@ -731,9 +731,9 @@ Canvas2PNG.prototype.interlaceNone_ = function(imageArray) {
  * @return {Array.<Canvas2PNG.Pass_>} 描画パスのリスト.
  * @private
  */
-Canvas2PNG.prototype.interlaceAdam7_ = function(imageArray) {
+Canvas2PNG.prototype.interlaceAdam7_ = function(pixelArray) {
   var height = this.height,
-      width = imageArray.length / height,
+      width = pixelArray.length / height,
       x, y, blockx, blocky, passx, passy, linex, liney,
       pixel,
       index, length,
@@ -764,7 +764,7 @@ Canvas2PNG.prototype.interlaceAdam7_ = function(imageArray) {
         // X 方向にブロック→パスの順に進めていく
         for (blockx = 0; blockx < width; blockx += 8) {
           for (passx = config.xStart; passx < 8; passx += config.xStep) {
-            pixel = imageArray[(blockx + passx) + (blocky + passy) * width];
+            pixel = pixelArray[(blockx + passx) + (blocky + passy) * width];
 
             if (pixel) {
               linex = (blockx + passx - config.xStart) / config.xStep;
@@ -788,14 +788,14 @@ Canvas2PNG.prototype.interlaceAdam7_ = function(imageArray) {
 /**
  * Pixel Array to Byte Array
  */
-Canvas2PNG.prototype.pixelArrayToByteArray_ = function(imageArray) {
+Canvas2PNG.prototype.pixelArrayToByteArray_ = function(pixelArray) {
   var byteArray = [], pixel, color,
       index, length, pIndex, pLength,
       depth = this.bitDepth, colourType = this.colourType, sep, current;
 
   sep = 8 / depth;
-  for (index = 0, length = imageArray.length; index < length; index++) {
-    pixel = imageArray[index];
+  for (index = 0, length = pixelArray.length; index < length; index++) {
+    pixel = pixelArray[index];
     // Bit Depth 8 未満は GRAYSCALE か INDEXED_COLORのみなので、
     // サンプル数は 1 を前提として良い
     // αチャンネルが付く場合も 8 以上しか許容しないので考えないで良い
@@ -860,32 +860,32 @@ Canvas2PNG.prototype.getFilter_ = function() {
 
 /**
  * Filter None
- * @param {Array.<number>} imageLine line array.
+ * @param {Array.<number>} lineByteArray line byte array.
  * @param {number} sub 左のピクセルとの距離.
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.prototype.filterNone_ = function(imageLine, sub) {
-  var filteredImageLine = imageLine;
+Canvas2PNG.prototype.filterNone_ = function(lineByteArray, sub) {
+  var filteredImageLine = lineByteArray;
 
-  filteredImageLine = imageLine;
+  filteredImageLine = lineByteArray;
 
   return filteredImageLine;
 };
 
 /**
  * Filter Sub
- * @param {Array.<number>} imageLine line array.
+ * @param {Array.<number>} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.prototype.filterSub_ = function(imageLine, sub) {
+Canvas2PNG.prototype.filterSub_ = function(lineByteArray, sub) {
   var filteredImageLine = [], left = 0, index, length;
 
-  for (index = 0, length = imageLine.length; index < length; index++) {
-    left = imageLine[index - sub] || 0;
-    filteredImageLine.push((imageLine[index] - left + 0x0100) & 0xff);
+  for (index = 0, length = lineByteArray.length; index < length; index++) {
+    left = lineByteArray[index - sub] || 0;
+    filteredImageLine.push((lineByteArray[index] - left + 0x0100) & 0xff);
   }
 
   return filteredImageLine;
@@ -893,17 +893,17 @@ Canvas2PNG.prototype.filterSub_ = function(imageLine, sub) {
 
 /**
  * Filter Up
- * @param {Array.<number>} imageLine line array.
+ * @param {Array.<number>} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.prototype.filterUp_ = function(imageLine, sub) {
+Canvas2PNG.prototype.filterUp_ = function(lineByteArray, sub) {
   var filteredImageLine = [], up, prevLine = this.prevLine_, index, length;
 
-  for (index = 0, length = imageLine.length; index < length; index++) {
+  for (index = 0, length = lineByteArray.length; index < length; index++) {
     up = (prevLine && prevLine[index]) ? prevLine[index] : 0;
-    filteredImageLine.push((imageLine[index] - up + 0x0100) & 0xff);
+    filteredImageLine.push((lineByteArray[index] - up + 0x0100) & 0xff);
   }
 
   return filteredImageLine;
@@ -911,22 +911,22 @@ Canvas2PNG.prototype.filterUp_ = function(imageLine, sub) {
 
 /**
  * Filter Average
- * @param {Array.<number>} imageLine line array.
+ * @param {Array.<number>} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.prototype.filterAverage_ = function(imageLine, sub) {
+Canvas2PNG.prototype.filterAverage_ = function(lineByteArray, sub) {
   var filteredImageLine = [],
       left, up, average,
       prevLine = this.prevLine_, index, length;
 
-  for (index = 0, length = imageLine.length; index < length; index++) {
-    left = imageLine[index - sub] || 0;
+  for (index = 0, length = lineByteArray.length; index < length; index++) {
+    left = lineByteArray[index - sub] || 0;
     up = prevLine && prevLine[index] || 0;
     average = (left + up) >>> 1;
 
-    filteredImageLine.push((imageLine[index] + 0x0100 - average) & 0xff);
+    filteredImageLine.push((lineByteArray[index] + 0x0100 - average) & 0xff);
   }
 
   return filteredImageLine;
@@ -934,23 +934,23 @@ Canvas2PNG.prototype.filterAverage_ = function(imageLine, sub) {
 
 /**
  * Filter Paeth
- * @param {Array.<number>} imageLine line array.
+ * @param {Array.<number>} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.prototype.filterPaeth_ = function(imageLine, sub) {
+Canvas2PNG.prototype.filterPaeth_ = function(lineByteArray, sub) {
   var filteredImageLine = [],
       left, up, leftup, paeth,
       prevLine = this.prevLine_, index, length;
 
-  for (index = 0, length = imageLine.length; index < length; index++) {
-    left = imageLine[index - sub] || 0;
+  for (index = 0, length = lineByteArray.length; index < length; index++) {
+    left = lineByteArray[index - sub] || 0;
     up = prevLine && prevLine[index] || 0;
     leftup = prevLine && prevLine[index - sub] || 0;
     paeth = this.paethPredictor_(left, up, leftup);
 
-    filteredImageLine.push((imageLine[index] - paeth + 0x0100) & 0xff);
+    filteredImageLine.push((lineByteArray[index] - paeth + 0x0100) & 0xff);
   }
 
   return filteredImageLine;
