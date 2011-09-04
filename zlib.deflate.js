@@ -107,7 +107,7 @@ Zlib.Deflate.prototype.compress = function(opt_param) {
 
 /**
  * deflate 圧縮を行う
- * @return {string} 圧縮済み byte array.
+ * @return {Array} 圧縮済み byte array.
  */
 Zlib.Deflate.prototype.makeBlocks = function() {
   var blocks = [], blockArray, position, length;
@@ -182,7 +182,7 @@ function makeNocompressBlock(blockArray, isFinalBlock) {
  * 固定ハフマンブロックの作成
  * @param {Array} blockArray ブロックデータ byte array.
  * @param {boolean} isFinalBlock 最後のブロックならばtrue.
- * @return {string} 非圧縮ブロックバイナリ文字列.
+ * @return {Array} 固定ハフマン符号化ブロック byte array.
  */
 function makeFixedHuffmanBlock(blockArray, isFinalBlock) {
   var stream = new BitStream(), bfinal, btype, data, deflate;
@@ -474,7 +474,7 @@ LzssMatch.prototype.getDistanceCode_ = function(dist) {
  * マッチ情報を LZSS 符号化配列で返す.
  * なお、ここでは以下の内部仕様で符号化している
  * [ CODE, EXTRA-BIT-LEN, EXTRA, CODE, EXTRA-BIT-LEN, EXTRA ]
- * @return {Array} LZSS 符号化配列.
+ * @return {Array} LZSS 符号化 byte array.
  */
 LzssMatch.prototype.toLzssArray = function() {
   var length = this.length,
