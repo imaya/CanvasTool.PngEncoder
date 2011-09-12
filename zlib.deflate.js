@@ -90,17 +90,17 @@ Zlib.Deflate.prototype.compress = function(opt_param) {
   fcheck = 31 - (cmf * 256 + flg) % 31;
   flg |= fcheck;
 
+  // Adler-32 checksum
+  adler = convertNetworkByteOrder(Zlib.adler32(this.buffer), 4);
+
   // compressed data
   compressedData = this.makeBlocks();
-
-  // Adler-32 checksum
-  adler = convertNetworkByteOrder(Zlib.adler32(compressedData), 4);
 
   // make zlib string
   deflate = [];
   deflate.push(cmf, flg);
-  Array.prototype.push.apply(deflate, compressedData);
-  Array.prototype.push.apply(deflate, adler);
+  concat_(deflate, compressedData);
+  concat_(deflate, adler);
 
   return deflate;
 };
@@ -127,14 +127,17 @@ Zlib.Deflate.prototype.makeBlocks = function() {
         position += blockArray.length;
 
         // make block
-        Array.prototype.push.apply(
+        concat_(
           blocks,
           makeNocompressBlock(blockArray, (position === length))
         );
       }
       break;
     case Zlib.Deflate.CompressionType.FIXED:
-      Array.prototype.push.apply(
+      console.log(
+          makeFixedHuffmanBlock(this.buffer, true).length
+      );
+      concat_(
           blocks,
           makeFixedHuffmanBlock(this.buffer, true)
       );
@@ -156,7 +159,7 @@ Zlib.Deflate.prototype.makeBlocks = function() {
  * @return {Array} 非圧縮ブロック byte array.
  */
 function makeNocompressBlock(blockArray, isFinalBlock) {
-  var header = []. bfinal, btype, len, nlen, i, l;
+  var header = [], bfinal, btype, len, nlen, i, l;
 
   // header
   bfinal = isFinalBlock ? 1 : 0;
@@ -327,7 +330,7 @@ RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
     // 符号の書き込み
     BitStream.prototype.writeBits.apply(
       stream,
-      RawDeflate.FixedHuffmanTable[literal]//.concat(true)
+      RawDeflate.FixedHuffmanTable[literal]
     );
 
     // 長さ・距離符号
@@ -418,7 +421,7 @@ LzssMatch.prototype.getLengthCode_ = function(length) {
       case (length <= 226): r = [283, length - 195, 5]; break;
       case (length <= 257): r = [284, length - 227, 5]; break;
       case (length === 258): r = [285, length - 258, 0]; break;
-      default: throw 'invalid length';
+      default: throw 'invalid length: ' + length;
     }
 
   return r;
@@ -482,10 +485,10 @@ LzssMatch.prototype.toLzssArray = function() {
       codeArray = [];
 
   // length
-  Array.prototype.push.apply(codeArray, this.getLengthCode_(length));
+  concat_(codeArray, this.getLengthCode_(length));
 
   // distance
-  Array.prototype.push.apply(codeArray, this.getDistanceCode_(dist));
+  concat_(codeArray, this.getDistanceCode_(dist));
 
 
   return codeArray;
@@ -526,7 +529,6 @@ RawDeflate.prototype.lzss = function(dataArray) {
       table[matchKey] = [];
     }
 
-     // lzssbuf.push(dataArray[position]);
     // スキップだったら何もしない
     if (skipLength > 0) {
       skipLength--;
@@ -578,7 +580,7 @@ RawDeflate.prototype.lzss = function(dataArray) {
 };
 
 /**
- * 最長一致を探す
+ * マッチした候補の中から最長一致を探す
  * @param {Object} dataArray 現在のウィンドウ.
  * @param {number} position 現在のウィンドウ位置.
  * @param {Array.<number>} matchList 候補となる位置の配列.
@@ -589,22 +591,55 @@ function searchLongestMatch_(dataArray, position, matchList) {
       matchTarget,
       matchLength, matchLimit,
       match, matchIndex, matchListLength,
-      minLength = RawDeflate.LzssMinLength;
+      minLength = RawDeflate.LzssMinLength,
+      matchStep = 8, i, matchEqual;
 
-  matchLimit = RawDeflate.LzssMaxLength - RawDeflate.LzssMinLength;
+  matchLimit = RawDeflate.LzssMaxLength;
 
   // 候補の中から最長マッチの物を探す
   lastMatch = matchList;
   matchList = [];
-  for (matchLength = 0; matchLength < matchLimit; matchLength++) {
-    matchTarget = dataArray[position + matchLength + minLength];
+  for (matchLength = minLength; matchLength < matchLimit; matchLength += matchStep) {
     matchListLength = lastMatch.length;
 
     for (matchIndex = 0; matchIndex < matchListLength; matchIndex++) {
       match = lastMatch[matchIndex];
-      // 判定
-      if (dataArray[match + matchLength + minLength] === matchTarget) {
+
+      // 後ろから判定
+      matchEqual = true
+      for (i = matchStep - 1; i >= 0; i--) {
+        if (dataArray[lastMatch[matchIndex] + matchLength + i] !==
+            dataArray[position              + matchLength + i]) {
+          matchEqual = false;
+          break;
+        }
+      }
+      if (matchEqual) {
         matchList.push(match);
+      }
+    }
+
+    // マッチ候補がなくなったら抜ける
+    if (matchList.length === 0) {
+      break;
+    }
+
+    // マッチリストの更新
+    lastMatch = matchList;
+    matchList = [];
+  }
+ if (matchLength > minLength) {
+    matchLength--;
+  }
+
+  // ふるいに掛けた候補を精査する
+  matchList = [];
+  for (i = 0; i < matchStep && matchLength < matchLimit; i++) {
+    matchListLength = lastMatch.length;
+
+    for (matchIndex = 0; matchIndex < matchListLength; matchIndex++) {
+      if (dataArray[lastMatch[matchIndex] + matchLength] === dataArray[position + matchLength]) {
+        matchList.push(lastMatch[matchIndex]);
       }
     }
 
@@ -612,13 +647,14 @@ function searchLongestMatch_(dataArray, position, matchList) {
       break;
     }
 
+    matchLength++;
     lastMatch = matchList;
     matchList = [];
   }
 
   // 最長のマッチ候補の中で距離が最短のものを選ぶ(拡張ビットが短く済む)
   return new LzssMatch(
-    matchLength + RawDeflate.LzssMinLength,
+    matchLength,
     position - Math.max.apply(this, lastMatch)
   );
 }
@@ -638,7 +674,7 @@ Zlib.updateAdler32 = function(adler, array) {
     s2 = (s2 + s1) % 65521;
   }
 
-  return (s2 << 16) + s1;
+  return (s2 << 16) | s1;
 };
 
 /**
@@ -715,10 +751,21 @@ function slice_(arraylike, start, length) {
 function concat_(arraylike1, arraylike2) {
   var length1 = arraylike1.length,
       length2 = arraylike2.length,
-      index;
+      index,
+      BufSize = 0xffff;
 
   if (arraylike1 instanceof Array && arraylike2 instanceof Array) {
-    return Array.prototype.push.apply(arraylike1, arraylike2);
+    if (arraylike2.length > BufSize) {
+      for (index = 0; index < length2; index += BufSize) {
+        Array.prototype.push.apply(
+            arraylike1,
+            arraylike2.slice(index, index + BufSize)
+        );
+      }
+      return arraylike1;
+    } else {
+      return Array.prototype.push.apply(arraylike1, arraylike2);
+    }
   }
 
   for (index = 0; index < length2; index++) {
