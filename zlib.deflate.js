@@ -134,9 +134,6 @@ Zlib.Deflate.prototype.makeBlocks = function() {
       }
       break;
     case Zlib.Deflate.CompressionType.FIXED:
-      console.log(
-          makeFixedHuffmanBlock(this.buffer, true).length
-      );
       concat_(
           blocks,
           makeFixedHuffmanBlock(this.buffer, true)
