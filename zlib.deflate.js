@@ -23,11 +23,15 @@ Zlib.CompressionMethod = {
 /**
  * Zlib Deflate
  * @param {Array|string} buffer Data.
+ * @param {Zlib.Deflate.CompressionType=}
  * @return {Array} compressed data byte array.
  */
-Zlib.Deflate = function(buffer) {
+Zlib.Deflate = function(buffer, opt_compressionType) {
   this.buffer = buffer;
   this.compressionType = Zlib.Deflate.CompressionType.FIXED;
+  if (opt_compressionType) {
+    this.compressionType = opt_compressionType;
+  }
 };
 
 /**
@@ -43,7 +47,7 @@ Zlib.Deflate.CompressionType = {
 /**
  * 直接圧縮に掛ける
  * @param {Array|string} buffer Data.
- * @param {Object} opt_param parameters.
+ * @param {Object=} opt_param parameters.
  * @return {Array} compressed data byte array.
  */
 Zlib.Deflate.compress = function(buffer, opt_param) {
@@ -54,7 +58,7 @@ Zlib.Deflate.compress = function(buffer, opt_param) {
 
 /**
  * Deflate Compression
- * @param {Object} opt_param parameters.
+ * @param {Object=} opt_param parameters.
  * @return {Array} compressed data byte array.
  */
 Zlib.Deflate.prototype.compress = function(opt_param) {
@@ -65,7 +69,7 @@ Zlib.Deflate.prototype.compress = function(opt_param) {
   cm = Zlib.CompressionMethod.DEFLATE;
   switch (cm) {
     case Zlib.CompressionMethod.DEFLATE:
-      cinfo = Math.LOG2E * Math.log(RawDeflate.WindowSize) - 8;
+      cinfo = Math.LOG2E * Math.log(Zlib.RawDeflate.WindowSize) - 8;
       break;
     default:
       throw 'invalid compression method';
@@ -79,7 +83,7 @@ Zlib.Deflate.prototype.compress = function(opt_param) {
       switch (this.compressionType) {
         case Zlib.Deflate.CompressionType.NONE: flevel = 0; break;
         case Zlib.Deflate.CompressionType.FIXED: flevel = 1; break;
-        case Zlib.Deflate.CompressionType.CUSTOM: throw 'TODO';
+        case Zlib.Deflate.CompressionType.CUSTOM: flevel = 2; break;
         default: throw 'unsupported compression type';
       }
       break;
@@ -129,18 +133,21 @@ Zlib.Deflate.prototype.makeBlocks = function() {
         // make block
         concat_(
           blocks,
-          makeNocompressBlock(blockArray, (position === length))
+          this.makeNocompressBlock(blockArray, (position === length))
         );
       }
       break;
     case Zlib.Deflate.CompressionType.FIXED:
       concat_(
-          blocks,
-          makeFixedHuffmanBlock(this.buffer, true)
+        blocks,
+        this.makeFixedHuffmanBlock(this.buffer, true)
       );
       break;
     case Zlib.Deflate.CompressionType.CUSTOM:
-      throw 'TODO'; // TODO
+      concat_(
+        blocks,
+        this.makeCustomHuffmanBlock(this.buffer, true)
+      );
       break;
     default:
       throw 'invalid compression type';
@@ -155,7 +162,8 @@ Zlib.Deflate.prototype.makeBlocks = function() {
  * @param {boolean} isFinalBlock 最後のブロックならばtrue.
  * @return {Array} 非圧縮ブロック byte array.
  */
-function makeNocompressBlock(blockArray, isFinalBlock) {
+Zlib.Deflate.prototype.makeNocompressBlock =
+function(blockArray, isFinalBlock) {
   var header = [], bfinal, btype, len, nlen, i, l;
 
   // header
@@ -176,7 +184,7 @@ function makeNocompressBlock(blockArray, isFinalBlock) {
   Array.prototype.unshift.apply(blockArray, header);
 
   return blockArray;
-}
+};
 
 /**
  * 固定ハフマンブロックの作成
@@ -184,7 +192,8 @@ function makeNocompressBlock(blockArray, isFinalBlock) {
  * @param {boolean} isFinalBlock 最後のブロックならばtrue.
  * @return {Array} 固定ハフマン符号化ブロック byte array.
  */
-function makeFixedHuffmanBlock(blockArray, isFinalBlock) {
+Zlib.Deflate.prototype.makeFixedHuffmanBlock =
+function(blockArray, isFinalBlock) {
   var stream = new BitStream(), bfinal, btype, data, deflate;
 
   // header
@@ -194,14 +203,102 @@ function makeFixedHuffmanBlock(blockArray, isFinalBlock) {
   stream.writeBits(bfinal, 1, true);
   stream.writeBits(btype, 2, true);
 
-  deflate = new RawDeflate();
+  deflate = new Zlib.RawDeflate(this.compressionType);
   data = deflate.lzss(blockArray);
   data = deflate.fixedHuffman(data, stream);
 
   return data;
-}
+};
 
-Zlib.RawDeflate = RawDeflate;
+/**
+ * カスタムハフマンブロックの作成
+ * @param {Array} blockArray ブロックデータ byte array.
+ * @param {boolean} isFinalBlock 最後のブロックならばtrue.
+ * @return {Array} カスタムハフマン符号ブロック byte array.
+ */
+Zlib.Deflate.prototype.makeCustomHuffmanBlock =
+function(blockArray, isFinalBlock) {
+  var stream = new BitStream(), bfinal, btype, data, deflate,
+      hlit, hdist, hclen,
+      hclenOrder =
+        [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15],
+      litLenLengths, litLenCodes, distLengths, distCodes,
+      treeSymbols, treeLengths,
+      transLengths = new Array(19),
+      codeLengths, codeCodes, code,
+      i, l;
+
+  // header
+  bfinal = isFinalBlock ? 1 : 0;
+  btype = Zlib.Deflate.CompressionType.CUSTOM;
+
+  stream.writeBits(bfinal, 1, true);
+  stream.writeBits(btype, 2, true);
+
+  deflate = new Zlib.RawDeflate(this.compressionType);
+  data = deflate.lzss(blockArray);
+
+  // リテラル・長さ, 距離のハフマン符号と符号長の算出
+  litLenLengths = deflate.getLengths_(deflate.freqsLitLen);
+  litLenCodes = deflate.getCodesFromLengths_(litLenLengths);
+  distLengths = deflate.getLengths_(deflate.freqsDist);
+  distCodes = deflate.getCodesFromLengths_(distLengths);
+
+  // HLIT, HDIST の決定
+  for (hlit = 286; hlit > 257 && litLenLengths[hlit - 1] === 0; hlit--);
+  for (hdist = 30; hdist > 1 && distLengths[hdist - 1] === 0; hdist--);
+
+  // HCLEN
+  treeSymbols =
+    deflate.getTreeSymbols_(hlit, litLenLengths, hdist, distLengths);
+  treeLengths = deflate.getLengths_(treeSymbols.freqs, 7);
+  for (i = 0; i < 19; i++) {
+    transLengths[i] = treeLengths[hclenOrder[i]];
+  }
+  for (hclen = 19; hclen > 4 && transLengths[hclen - 1] === 0; hclen--);
+
+  codeLengths = deflate.getLengths_(treeSymbols.freqs);
+  codeCodes = deflate.getCodesFromLengths_(codeLengths);
+
+  // 出力
+  stream.writeBits(hlit - 257, 5, true);
+  stream.writeBits(hdist - 1, 5, true);
+  stream.writeBits(hclen - 4, 4, true);
+  for (i = 0; i < hclen; i++) {
+    stream.writeBits(transLengths[i], 3, true);
+  }
+
+  // ツリーの出力
+  for (i = 0, l = treeSymbols.codes.length; i < l; i++) {
+    code = treeSymbols.codes[i];
+
+    stream.writeBits(codeCodes[code], codeLengths[code], true);
+
+    // extra bits
+    if (code >= 16) {
+      i++;
+      stream.writeBits(
+        treeSymbols.codes[i],
+        (code === 16) ? 2 :
+        (code === 17) ? 3 :
+        (code === 18) ? 7 :
+        (function() { throw 'invalid code'; })(),
+        true
+      );
+    }
+  }
+
+  deflate.customHuffman(
+    data,
+    [litLenCodes, litLenLengths],
+    [distCodes, distLengths],
+    stream
+  );
+
+  stream.writeBits(litLenCodes[256], litLenLengths[256], true);
+
+  return stream.finite();
+};
 
 /**
  * ビットストリーム
@@ -279,10 +376,14 @@ BitStream.prototype.reverseByte = function(index) {
 
 /**
  * Raw Deflate 実装
+ * @param {Zlib.Deflate.CompressionType} type CompressionType.
  * @constructor
  */
-function RawDeflate() {
+Zlib.RawDeflate = function(type) {
+  this.compressionType = type;
   this.matchTable = {};
+  this.freqsLitLen;
+  this.freqsDist;
 }
 
 /**
@@ -290,12 +391,12 @@ function RawDeflate() {
  * @type {Array.<number, number>}
  * @const
  */
-RawDeflate.FixedHuffmanTable = (function() {
+Zlib.RawDeflate.FixedHuffmanTable = (function() {
   var table = [], i;
 
   for (i = 0; i <= 288; i++) {
     switch (true) {
-      case (i <= 143): table.push([i -   0 + 0x030, 8]); break;
+      case (i <= 143): table.push([i - 0 + 0x030, 8]); break;
       case (i <= 255): table.push([i - 144 + 0x190, 9]); break;
       case (i <= 279): table.push([i - 256 + 0x000, 7]); break;
       case (i <= 287): table.push([i - 280 + 0x0C0, 8]); break;
@@ -308,12 +409,59 @@ RawDeflate.FixedHuffmanTable = (function() {
 })();
 
 /**
+ * カスタムハフマン符号化
+ * @param {Array} dataArray LZSS 符号化済み byte array.
+ * @param {BitStream=} stream 書き込み用ビットストリーム.
+ * @return {BitStream} ハフマン符号化済みビットストリームオブジェクト.
+ */
+Zlib.RawDeflate.prototype.customHuffman = function(dataArray, litLen, dist, stream) {
+  var index, length, code, bitlen, extra,
+      litLenCodes, litLenLengths, distCodes, distLengths;
+
+  if (!(stream instanceof BitStream)) {
+    stream = new BitStream();
+  }
+
+  litLenCodes = litLen[0];
+  litLenLengths = litLen[1];
+  distCodes = dist[0];
+  distLengths = dist[1];
+
+  // 符号を BitStream に書き込んでいく
+  for (index = 0, length = dataArray.length; index < length; index++) {
+    literal = dataArray[index];
+
+    // literal or length
+    stream.writeBits(litLenCodes[literal], litLenLengths[literal], true);
+
+    // 長さ・距離符号
+    if (literal > 0x100) {
+      // length extra
+      stream.writeBits(dataArray[++index], dataArray[++index], true);
+      // distance
+      stream.writeBits(
+        distCodes[dataArray[++index]],
+        distLengths[dataArray[index]],
+        true
+      );
+      // distance extra
+      stream.writeBits(dataArray[++index], dataArray[++index], true);
+    // 終端
+    } else if (literal === 0x100) {
+      break;
+    }
+  }
+
+  return stream;
+};
+
+/**
  * 固定ハフマン符号化
  * @param {Array} dataArray LZSS 符号化済み byte array.
  * @param {BitStream=} stream 書き込み用ビットストリーム.
  * @return {Array} ハフマン符号化済み byte array.
  */
-RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
+Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
   var index, length, code, bitlen, extra;
 
   if (!(stream instanceof BitStream)) {
@@ -327,7 +475,7 @@ RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
     // 符号の書き込み
     BitStream.prototype.writeBits.apply(
       stream,
-      RawDeflate.FixedHuffmanTable[literal]
+      Zlib.RawDeflate.FixedHuffmanTable[literal]
     );
 
     // 長さ・距離符号
@@ -352,21 +500,21 @@ RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
  * @type {number}
  * @const
  */
-RawDeflate.LzssMinLength = 3;
+Zlib.RawDeflate.LzssMinLength = 3;
 
 /**
  * LZSS の最大マッチ長
  * @type {number}
  * @const
  */
-RawDeflate.LzssMaxLength = 258;
+Zlib.RawDeflate.LzssMaxLength = 258;
 
 /**
  * LZSS のウィンドウサイズ
  * @type {number}
  * @const
  */
-RawDeflate.WindowSize = 0x8000;
+Zlib.RawDeflate.WindowSize = 0x8000;
 
 /**
  * マッチ情報
@@ -381,8 +529,8 @@ function LzssMatch(length, backwordDistance) {
 
 /**
  * 長さ符号テーブル
- * @param {number} length 長さ
- * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列
+ * @param {number} length 長さ.
+ * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列.
  * @private
  */
 LzssMatch.prototype.getLengthCode_ = function(length) {
@@ -426,8 +574,8 @@ LzssMatch.prototype.getLengthCode_ = function(length) {
 
 /**
  * 距離符号テーブル
- * @param {number} dist 距離
- * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列
+ * @param {number} dist 距離.
+ * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列.
  * @private
  */
 LzssMatch.prototype.getDistanceCode_ = function(dist) {
@@ -496,22 +644,44 @@ LzssMatch.prototype.toLzssArray = function() {
  * @param {Object|Array} dataArray LZSS 符号化するバイト配列.
  * @return {Uint16Array} LZSS 符号化した配列.
  */
-RawDeflate.prototype.lzss = function(dataArray) {
+Zlib.RawDeflate.prototype.lzss = function(dataArray) {
   var position, length, i, l,
       matchKey, matchKeyArray,
       table = this.matchTable,
       longestMatch,
       matchList, matchIndex, matchLenght, matchPosition,
-      lzssbuf = [], skipLength = 0;
+      lzssbuf = [], skipLength = 0, lzssArray,
+      isCustom, freqsLitLen = [], freqsDist = [];
+
+  isCustom = (this.compressionType === Zlib.Deflate.CompressionType.CUSTOM);
+
+  if (isCustom) {
+    // XXX: magic number
+    for (i = 0; i <= 285; i++) {
+      freqsLitLen[i] = 0;
+    }
+    // XXX: magic number
+    for (i = 0; i <= 29; i++) {
+      freqsDist[i] = 0;
+    }
+  }
 
   length = dataArray.length;
   for (position = 0; position < length; position++) {
     // 最小マッチ長分のキーを作成する
-    matchKeyArray = slice_(dataArray, position, RawDeflate.LzssMinLength);
+    matchKeyArray = slice_(dataArray, position, Zlib.RawDeflate.LzssMinLength);
 
     // 終わりの方でもうマッチしようがない場合はそのまま流し込む
-    if (matchKeyArray.length < RawDeflate.LzssMinLength && skipLength === 0) {
+    if (matchKeyArray.length < Zlib.RawDeflate.LzssMinLength &&
+        skipLength === 0) {
       concat_(lzssbuf, matchKeyArray);
+
+      if (isCustom) {
+        for (i = 0, l = matchKeyArray.length; i < l; i++) {
+          freqsLitLen[matchKeyArray[i]]++;
+        }
+      }
+
       break;
     }
 
@@ -541,7 +711,7 @@ RawDeflate.prototype.lzss = function(dataArray) {
         matchPosition = matchList[matchIndex];
 
         // 最大戻り距離を超えていた場合は削除する
-        if (position - matchPosition > RawDeflate.WindowSize) {
+        if (position - matchPosition > Zlib.RawDeflate.WindowSize) {
           matchList.shift();
           matchIndex--; matchLength--;
           continue;
@@ -554,14 +724,22 @@ RawDeflate.prototype.lzss = function(dataArray) {
       // マッチ候補が見つかった場合
       if (matchList.length > 0) {
         // 最長マッチの探索
-        longestMatch = searchLongestMatch_(dataArray, position, matchList);
+        longestMatch = this.searchLongestMatch_(dataArray, position, matchList);
+        lzssArray = longestMatch.toLzssArray();
 
         // LZSS 符号化を行い結果に格納
-        concat_(lzssbuf, longestMatch.toLzssArray());
+        concat_(lzssbuf, lzssArray);
+        if (isCustom) {
+          freqsLitLen[lzssArray[0]]++;
+          freqsDist[lzssArray[3]]++;
+        }
 
         // 最長マッチの長さだけ進む
         skipLength = longestMatch.length - 1;
       } else {
+        if (isCustom) {
+          freqsLitLen[dataArray[position]]++;
+        }
         lzssbuf.push(dataArray[position]);
       }
     }
@@ -571,6 +749,11 @@ RawDeflate.prototype.lzss = function(dataArray) {
   }
 
   // 終端コードの追加
+  if (isCustom) {
+    freqsLitLen[256]++;
+    this.freqsLitLen = freqsLitLen;
+    this.freqsDist = freqsDist;
+  }
   lzssbuf[lzssbuf.length] = 256;
 
   return lzssbuf;
@@ -582,31 +765,34 @@ RawDeflate.prototype.lzss = function(dataArray) {
  * @param {number} position 現在のウィンドウ位置.
  * @param {Array.<number>} matchList 候補となる位置の配列.
  * @return {LzssMatch} 最長かつ最短距離のマッチオブジェクト.
+ * @private
  */
-function searchLongestMatch_(dataArray, position, matchList) {
+Zlib.RawDeflate.prototype.searchLongestMatch_ =
+function(dataArray, position, matchList) {
   var lastMatch,
       matchTarget,
       matchLength, matchLimit,
       match, matchIndex, matchListLength,
-      minLength = RawDeflate.LzssMinLength,
+      minLength = Zlib.RawDeflate.LzssMinLength,
       matchStep = 8, i, matchEqual;
 
-  matchLimit = RawDeflate.LzssMaxLength;
+  matchLimit = Zlib.RawDeflate.LzssMaxLength;
 
   // 候補の中から最長マッチの物を探す
   lastMatch = matchList;
   matchList = [];
-  for (matchLength = minLength; matchLength < matchLimit; matchLength += matchStep) {
+  matchLength = minLength;
+  for (; matchLength < matchLimit; matchLength += matchStep) {
     matchListLength = lastMatch.length;
 
     for (matchIndex = 0; matchIndex < matchListLength; matchIndex++) {
       match = lastMatch[matchIndex];
 
       // 後ろから判定
-      matchEqual = true
+      matchEqual = true;
       for (i = matchStep - 1; i >= 0; i--) {
         if (dataArray[lastMatch[matchIndex] + matchLength + i] !==
-            dataArray[position              + matchLength + i]) {
+            dataArray[position + matchLength + i]) {
           matchEqual = false;
           break;
         }
@@ -635,7 +821,8 @@ function searchLongestMatch_(dataArray, position, matchList) {
     matchListLength = lastMatch.length;
 
     for (matchIndex = 0; matchIndex < matchListLength; matchIndex++) {
-      if (dataArray[lastMatch[matchIndex] + matchLength] === dataArray[position + matchLength]) {
+      if (dataArray[lastMatch[matchIndex] + matchLength] ===
+          dataArray[position + matchLength]) {
         matchList.push(lastMatch[matchIndex]);
       }
     }
@@ -655,6 +842,392 @@ function searchLongestMatch_(dataArray, position, matchList) {
     position - Math.max.apply(this, lastMatch)
   );
 }
+
+/**
+ * Tree-Transmit Symbols の算出
+ * reference: PuTTY Deflate implementation
+ * @param {number} hlit HLIT.
+ * @param {Array|Uint8Array} litlenLengths リテラルと長さ符号の符号長配列.
+ * @param {number} hdist HDIST.
+ * @param {Array|Uint8Array} distLengths 距離符号の符号長配列.
+ * @return {{codes: Array|Uint8Array, freqs: Array|Uint8Array}} Tree-Transmit
+ *     Symbols.
+ */
+Zlib.RawDeflate.prototype.getTreeSymbols_ =
+function(hlit, litlenLengths, hdist, distLengths) {
+  var src = new Array(hlit + hdist),
+      i, j, runLength, l, length,
+      result = new Array(286 + 30), rpt, freqs = new Array(19);
+
+  j = 0;
+  for (i = 0; i < hlit; i++) {
+    src[j++] = litlenLengths[i];
+  }
+  for (i = 0; i < hdist; i++) {
+    src[j++] = distLengths[i];
+  }
+
+  // 初期化
+  // XXX: Uint8Array の場合はここの初期化処理が要らない
+  for (i = 0, l = freqs.length; i < l; i++) {
+    freqs[i] = 0;
+  }
+
+  // 符号化
+  nResult = 0;
+  for (i = 0, l = src.length; i < l; i += j) {
+    // Run Length Encoding
+    for (j = 1; i + j < l && src[i + j] === src[i]; j++);
+
+    runLength = j;
+
+    if (src[i] === 0) {
+      // 0 の繰り返しが 3 回未満ならばそのまま
+      if (runLength < 3) {
+        while (runLength-- > 0) {
+          result[nResult++] = 0;
+          freqs[0]++;
+        }
+      } else {
+        while (runLength > 0) {
+          // 繰り返しは最大 138 までなので切り詰める
+          rpt = (runLength < 138 ? runLength : 138);
+
+          if (rpt > runLength - 3 && rpt < runLength) {
+            rpt = runLength - 3;
+          }
+
+          // 3-10 回 -> 17
+          if (rpt <= 10) {
+            result[nResult++] = 17;
+            result[nResult++] = rpt - 3;
+            freqs[17]++;
+          // 11-138 回 -> 18
+          } else {
+            result[nResult++] = 18;
+            result[nResult++] = rpt - 11;
+            freqs[18]++;
+          }
+
+          runLength -= rpt;
+        }
+      }
+    } else {
+      result[nResult++] = src[i];
+      freqs[src[i]]++;
+      runLength--;
+
+      // 繰り返し回数が3回未満ならばランレングス符号は要らない
+      if (runLength < 3) {
+        while (runLength-- > 0) {
+          result[nResult++] = src[i];
+          freqs[src[i]]++;
+        }
+      // 3 回以上ならばランレングス符号化
+      } else {
+        while (runLength > 0) {
+          // runLengthを 3-6 で分割
+          rpt = (runLength < 6 ? runLength : 6);
+
+          if (rpt > runLength - 3 && rpt < runLength) {
+            rpt = runLength - 3;
+          }
+
+          result[nResult++] = 16;
+          result[nResult++] = rpt - 3;
+          freqs[16]++;
+
+          runLength -= rpt;
+        }
+      }
+    }
+  }
+
+  return {codes: result.slice(0, nResult), freqs: freqs};
+};
+
+/**
+ * ハフマン符号の長さを取得する
+ * @private
+ */
+Zlib.RawDeflate.prototype.getLengths_ = function(freqs, limit) {
+  var nSymbols = freqs.length,
+      max = 2 * nSymbols,
+      heap = new Zlib.Heap(max),
+      parent = new Array(max),
+      length = new Array(max),
+      i, node1, node2,
+      freqsZero = [],
+      maxProb, smallestFreq = 0xffffffff, totalFreq,
+      num, denom, adjust;
+
+  // 0 の要素を調べる, 最小出現数を調べる, 合計出現数を調べる
+  for (i = 0; i < nSymbols; i++) {
+    if (freqs[i] === 0) {
+      freqsZero.push(i);
+    } else {
+      if (smallestFreq > freqs[i]) {
+        smallestFreq = freqs[i];
+      }
+      totalFreq += freqs[i];
+    }
+  }
+
+  // 非 0 の要素が 2 より小さかったら 2 になるまで 1 で埋める
+  for (i = 0; nSymbols - freqsZero.length < 2; i++) {
+    freqs[freqsZero.shift()] = 1;
+  }
+
+  // limit が決まっている場合は調整する
+  if ((limit | 0) > 0) {
+    totalFreq = 0;
+
+    // 引数チェック
+    if (limit !== 7 && limit !== 15) {
+      throw 'invalid limit number';
+    }
+
+/*
+    // 0 の要素を調べる, 最小出現数を調べる, 合計出現数を調べる
+    for (i = 0; i < nSymbols; i++) {
+      if (freqs[i] === 0) {
+        freqsZero.push(i);
+      } else {
+        if (smallestFreq > freqs[i]) {
+          smallestFreq = freqs[i];
+        }
+        totalFreq += freqs[i];
+      }
+    }
+
+    // 非 0 の要素が 2 より小さかったら 2 になるまで 1 で埋める
+    for (i = 0; nSymbols - freqsZero.length < 2; i++) {
+      freqs[freqsZero.shift()] = 1;
+    }
+*/
+
+    // 調整用パラメータの算出
+    maxProb = (limit === 15) ? 2584 : 55;
+    nActiveSymbols = nSymbols - freqsZero.length;
+    num = totalFreq - smallestFreq * maxProb;
+    denom = maxProb - (nSymbols - freqsZero.length);
+    adjust = ((num + denom - 1) / denom) | 0;
+
+    // 非 0 要素の値を調整する
+    for (i = 0; i < nSymbols; i++) {
+      if (freqs[i] !== 0) {
+        freqs[i] += adjust;
+      }
+    }
+  }
+
+  // 配列の初期化
+  for (i = 0; i < max; i++) {
+    parent[i] = 0;
+    length[i] = 0;
+  }
+
+  // ヒープの構築
+  for (i = 0; i < max; i++) {
+    if (freqs[i] > 0) {
+      heap.push(i, freqs[i]);
+    }
+  }
+
+  // ハフマン木の構築
+  // ノードを2つ取り、その値の合計をヒープを戻していくことでハフマン木になる
+  for (i = nSymbols; heap.length > 2; i++) {
+    node1 = heap.pop();
+    node2 = heap.pop();
+    parent[node1.index] = parent[node2.index] = i;
+    heap.push(i, node1.value + node2.value);
+  }
+
+  // ハフマン木から符号長に変換する
+  for (; i >= 0; i--) {
+    if (typeof(parent[i]) !== 'undefined' && parent[i] > 0) {
+      length[i] = 1 + length[parent[i]];
+    }
+  }
+
+  return length.slice(0, nSymbols);
+};
+
+/**
+ * @type {number}
+ * @const
+ */
+Zlib.RawDeflate.MaxCodeLength = 16;
+
+/**
+ * 符号長配列からハフマン符号を取得する
+ * reference: PuTTY Deflate implementation
+ * @param {Array|Uint8Array} lengths 符号長配列.
+ * @return {Array|Uint8Array} ハフマン符号配列.
+ */
+Zlib.RawDeflate.prototype.getCodesFromLengths_ = function(lengths) {
+  var codes = new Array(lengths.length),
+      count = [],
+      startCode = [],
+      code = 0, i, l, j, m;
+
+  // Count the codes of each length.
+  for (i = 0, l = lengths.length; i < l; i++) {
+    count[lengths[i]] = (count[lengths[i]] | 0) + 1;
+  }
+
+  // Determine the starting code for each length block.
+  for (i = 1, l = Zlib.RawDeflate.MaxCodeLength; i <= l; i++) {
+    startCode[i] = code;
+    code += count[i] | 0;
+
+    // overcommited
+    if (code > (1 << i)) {
+      throw 'overcommitted';
+    }
+
+    code <<= 1;
+  }
+
+  // undercommitted
+  if (code < (1 << Zlib.RawDeflate.MaxCodeLength)) {
+    throw 'undercommitted';
+  }
+
+  // Determine the code for each symbol. Mirrored, of course.
+  for (i = 0, l = lengths.length; i < l; i++) {
+    code = startCode[lengths[i]];
+    startCode[lengths[i]] += 1;
+    codes[i] = 0;
+    for (j = 0, m = lengths[i]; j < m; j++) {
+      codes[i] = (codes[i] << 1) | (code & 1);
+      code >>>= 1;
+    }
+  }
+
+  return codes;
+};
+
+/**
+ * カスタムハフマン符号で使用するヒープ実装
+ * @param {number} length ヒープサイズ.
+ * @constructor
+ */
+Zlib.Heap = function(length) {
+  this.buffer = new Array(length * 2);
+  this.length = 0;
+}
+
+/**
+ * 親ノードの index 取得
+ * @param {number} index 子ノードの index.
+ * @return {number} 親ノードの index.
+ *
+ */
+Zlib.Heap.prototype.getParent = function(index) {
+  return ((index - 2) / 4 | 0) * 2;
+};
+
+/**
+ * 子ノードの index 取得
+ * @param {number} index 親ノードの index.
+ * @return {number} 子ノードの index.
+ */
+Zlib.Heap.prototype.getChild = function(index) {
+  return 2 * index + 2;
+};
+
+/**
+ * Heap に値を追加する
+ * @param {number} index キー index.
+ * @param {number} value 値.
+ * @return {number} 現在のヒープ長.
+ */
+Zlib.Heap.prototype.push = function(index, value) {
+  var current, parent,
+      heap = this.buffer,
+      swap;
+
+  current = this.length;
+  heap[this.length] = index;
+  heap[this.length + 1] = value;
+  this.length += 2;
+
+  // ルートノードにたどり着くまで入れ替えを試みる
+  while (current > 0) {
+    parent = this.getParent(current);
+
+    // 親ノードと値を比較して親の方が大きければ値と index を入れ替える
+    if (heap[current + 1] < heap[parent + 1]) {
+      swap = heap[current];
+      heap[current] = heap[parent];
+      heap[parent] = swap;
+
+      swap = heap[current + 1];
+      heap[current + 1] = heap[parent + 1];
+      heap[parent + 1] = swap;
+
+      current = parent;
+    // 入れ替えが必要なくなったらそこで抜ける
+    } else {
+      break;
+    }
+  }
+
+  return this.length;
+};
+
+/**
+ * Heapから一番小さい値を返す
+ * @return {Object} {index: キーindex, value: 値, length: ヒープ長} の Object.
+ */
+Zlib.Heap.prototype.pop = function() {
+  var index, value,
+      heap = this.buffer,
+      current, parent;
+
+  index = heap[0];
+  value = heap[1];
+
+  // 後ろから値を取る
+  heap[0] = heap[this.length - 2];
+  heap[1] = heap[this.length - 1];
+  this.length -= 2;
+
+  parent = 0;
+  // ルートノードから下がっていく
+  while (true) {
+    current = this.getChild(parent);
+
+    // 範囲チェック
+    if (current >= this.length) {
+      break;
+    }
+
+    // 隣のノードと比較して、隣の方が値が小さければ隣を現在ノードとして選択
+    if (current + 2 < this.length && heap[current + 3] < heap[current + 1]) {
+      current += 2;
+    }
+
+    // 親ノードと比較して親の方が大きい場合は入れ替える
+    if (heap[parent + 1] > heap[current + 1]) {
+      swap = heap[current];
+      heap[current] = heap[parent];
+      heap[parent] = swap;
+
+      swap = heap[current + 1];
+      heap[current + 1] = heap[parent + 1];
+      heap[parent + 1] = swap;
+    } else {
+      break;
+    }
+
+    parent = current;
+  }
+
+  return {index: index, value: value, length: this.length};
+};
+
 
 /**
  * Adler32 ハッシュ値の更新
