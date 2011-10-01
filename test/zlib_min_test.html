@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Zlib Test</title>
+<script src="../vendor/google-closure-library/closure/goog/base.js"></script>
+<script src="../vendor/png.js/zlib.js"></script>
+<script src="../bin/zlib.deflate.min.js"></script>
+<script>
+goog.require('goog.testing.jsunit');
+</script>
+</head>
+<body>
+<script>
+var LOOP = 1000000;
+
+function setUp() {
+}
+
+function tearDown() {
+}
+
+function testDeflateRandom() {
+	var testData = [];
+	var deflate;
+	var inflateUint8Array;
+	var inflate = [];
+
+	// make random data
+	for (var i = 0; i < LOOP; i++) {
+		testData[i] = Math.floor(Math.random() * 256);
+	}
+	G_testRunner.log("Source Size: " + testData.length);
+
+	// deflate
+	deflate = Zlib.Deflate.compress(testData);
+	G_testRunner.log("Deflate Size: " + deflate.length);
+
+	// inflate
+	inflateUint8Array = (new FlateStream(deflate)).getBytes();
+	G_testRunner.log("Inflate Size: " + inflateUint8Array.length);
+
+	// uint8array -> array
+	for (var i = 0, l = inflateUint8Array.length; i < l; i++) {
+		inflate[i] = inflateUint8Array[i];
+	}
+
+	assertArrayEquals("deflate -> inflate random", testData, inflate);
+}
+
+function testDeflateIncrease() {
+	var testData = [];
+	var deflate;
+	var inflateUint8Array;
+	var inflate = [];
+
+	// make data
+	for (var i = 0; i < LOOP; i++) {
+		testData[i] = i & 0xff;
+	}
+	G_testRunner.log("Source Size: " + testData.length);
+
+	// deflate
+	deflate = Zlib.Deflate.compress(testData);
+	G_testRunner.log("Deflate Size: " + deflate.length);
+
+	// inflate
+	inflateUint8Array = (new FlateStream(deflate)).getBytes();
+	G_testRunner.log("Inflate Size: " + inflateUint8Array.length);
+
+	// uint8array -> array
+	for (var i = 0, l = inflateUint8Array.length; i < l; i++) {
+		inflate[i] = inflateUint8Array[i];
+	}
+
+	assertArrayEquals("deflate -> inflate increase", testData, inflate);
+}
+
+</script>
+</body>
+</html>

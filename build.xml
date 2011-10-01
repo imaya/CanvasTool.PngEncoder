@@ -7,6 +7,9 @@
 	<!-- ベンダーディレクトリ -->
 	<property name="vendor" value="./vendor" />
 
+	<!-- バイナリディレクトリ -->
+	<property name="bin" value="./bin" />
+
 	<!-- 依存関係を解決する deps.js のビルド -->
 	<target name="deps" description="依存関係を解決する deps.js を作成する" >
 		<exec dir="${src}" executable="python" failonerror="true">
@@ -24,12 +27,13 @@
 			<arg line="-f &quot;--compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
 			<arg line="-f &quot;--externs=externs-zlib.js&quot;" />
 			<arg line="-f &quot;--define=goog.DEBUG=false&quot;" />
+			<arg line="-f &quot;--output_wrapper='(function() {%output%})();'&quot;" />
 			<arg line="--root=../${vendor}/google-closure-library/closure" />
 			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
 			<arg line="--root=." />
 			<arg line="--namespace=Zlib" />
 			<arg line="-o compiled" />
-			<arg line="--output_file=zlib.deflate.min.js" />
+			<arg line="--output_file=../${bin}/zlib.deflate.min.js" />
 		</exec>
 	</target>
 
@@ -45,7 +49,7 @@
 			<arg line="--root=." />
 			<arg line="--namespace=Canvas2PNG" />
 			<arg line="-o compiled" />
-			<arg line="--output_file=canvas2png.debug.js" />
+			<arg line="--output_file=../${bin}/canvas2png.debug.js" />
 		</exec>
 	</target>
 
@@ -62,7 +66,7 @@
 			<arg line="--root=." />
 			<arg line="--namespace=Canvas2PNG" />
 			<arg line="-o compiled" />
-			<arg line="--output_file=canvas2png.min.js" />
+			<arg line="--output_file=../${bin}/canvas2png.min.js" />
 		</exec>
 	</target>
 
