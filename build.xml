@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project name="project" default="all" >
+
+	<!-- ソースディレクトリ -->
+	<property name="src" value="./src" />
+
+	<!-- ベンダーディレクトリ -->
+	<property name="vendor" value="./vendor" />
+
+	<!-- 依存関係を解決する deps.js のビルド -->
+	<target name="deps" description="依存関係を解決する deps.js を作成する" >
+		<exec dir="${src}" executable="python" failonerror="true">
+			<arg line="../${vendor}/google-closure-library/closure/bin/build/depswriter.py" />
+			<arg line="--root_with_prefix=&quot;. ../../../../src&quot;" />
+			<arg line="--output_file=deps.js " />
+		</exec>
+	</target>
+
+	<!-- Zlib の単体ビルド -->
+	<target name="zlib" description="Zlib(RFC1950), Deflate(RFC1951) 部分の独立ビルドを行う" >
+		<exec dir="${src}" executable="python" failonerror="true">
+			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
+			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
+			<arg line="-f &quot;--compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
+			<arg line="-f &quot;--externs=externs-zlib.js&quot;" />
+			<arg line="-f &quot;--define=goog.DEBUG=false&quot;" />
+			<arg line="--root=../${vendor}/google-closure-library/closure" />
+			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
+			<arg line="--root=." />
+			<arg line="--namespace=Zlib" />
+			<arg line="-o compiled" />
+			<arg line="--output_file=zlib.deflate.min.js" />
+		</exec>
+	</target>
+
+	<!-- デバッグ版のビルド -->
+	<target name="debug" description="デバッグ版のファイル debug.js を作成する" >
+		<exec dir="${src}" executable="python" failonerror="true">
+			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
+			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
+			<arg line="-f &quot;--compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
+			<arg line="-f &quot;--externs=externs.js&quot;" />
+			<arg line="--root=../${vendor}/google-closure-library/closure" />
+			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
+			<arg line="--root=." />
+			<arg line="--namespace=Canvas2PNG" />
+			<arg line="-o compiled" />
+			<arg line="--output_file=canvas2png.debug.js" />
+		</exec>
+	</target>
+
+	<!-- リリース版のビルド -->
+	<target name="release" description="リリース版のファイル release.js を作成する" >
+		<exec dir="${src}" executable="python" failonerror="true">
+			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
+			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
+			<arg line="-f &quot;--compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
+			<arg line="-f &quot;--externs=externs.js&quot;" />
+			<arg line="-f &quot;--define=goog.DEBUG=false&quot;" />
+			<arg line="--root=../${vendor}/google-closure-library/closure" />
+			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
+			<arg line="--root=." />
+			<arg line="--namespace=Canvas2PNG" />
+			<arg line="-o compiled" />
+			<arg line="--output_file=canvas2png.min.js" />
+		</exec>
+	</target>
+
+	<!-- 全て作成 -->
+	<target name="all" depends="debug,release"></target>
+
+	<!--  削除 -->
+	<target name="clean">
+		<delete file="${src}/deps.js" />
+		<delete file="${src}/canvas2png.debug.js" />
+		<delete file="${src}/canvas2png.min.js" />
+	</target>
+
+	<!-- リビルド -->
+	<target name="rebuild" depends="clean,all"></target>
+</project>
