@@ -49,7 +49,7 @@ Zlib.Adler32 = function(array) {
  * @return {number} Adler32 ハッシュ値.
  */
 Zlib.Adler32.update = function(adler, array) {
-  var s1 = adler & 0xffff;
+  var s1 = adler & 0xffff,
       s2 = (adler >>> 16) & 0xffff;
 
   for (var i = 0, l = array.length; i < l; i++) {

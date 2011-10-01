@@ -83,7 +83,7 @@ Zlib.RawDeflate.MaxCodeLength = 16;
 
 /**
  * 固定ハフマン符号の符号化テーブル
- * @type {Array.<number, number>}
+ * @type {Array.<Array.<number, number>>}
  * @const
  */
 Zlib.RawDeflate.FixedHuffmanTable = (function() {
@@ -111,7 +111,7 @@ Zlib.RawDeflate.FixedHuffmanTable = (function() {
  */
 Zlib.RawDeflate.prototype.customHuffman =
 function(dataArray, litLen, dist, stream) {
-  var index, length, code, bitlen, extra,
+  var index, length, literal, code, bitlen, extra,
       litLenCodes, litLenLengths, distCodes, distLengths;
 
   if (!(stream instanceof Zlib.BitStream)) {
@@ -158,7 +158,7 @@ function(dataArray, litLen, dist, stream) {
  * @return {Array} ハフマン符号化済み byte array.
  */
 Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
-  var index, length, code, bitlen, extra;
+  var index, length, literal, code, bitlen, extra;
 
   if (!(stream instanceof Zlib.BitStream)) {
     stream = new Zlib.BitStream();
@@ -316,15 +316,15 @@ LzssMatch.prototype.toLzssArray = function() {
 
 /**
  * LZSS 実装
- * @param {Object|Array} dataArray LZSS 符号化するバイト配列.
- * @return {Uint16Array} LZSS 符号化した配列.
+ * @param {Array|Uint8Array} dataArray LZSS 符号化するバイト配列.
+ * @return {Array} LZSS 符号化した配列.
  */
 Zlib.RawDeflate.prototype.lzss = function(dataArray) {
   var position, length, i, l,
       matchKey, matchKeyArray,
       table = this.matchTable,
       longestMatch,
-      matchList, matchIndex, matchLenght, matchPosition,
+      currentMatchList, matchList, matchIndex, matchLength, matchPosition,
       lzssbuf = [], skipLength = 0, lzssArray,
       isCustom, freqsLitLen = [], freqsDist = [];
 
@@ -526,14 +526,15 @@ function(dataArray, position, matchList) {
  * @param {Array|Uint8Array} litlenLengths リテラルと長さ符号の符号長配列.
  * @param {number} hdist HDIST.
  * @param {Array|Uint8Array} distLengths 距離符号の符号長配列.
- * @return {{codes: Array|Uint8Array, freqs: Array|Uint8Array}} Tree-Transmit
+ * @return {{codes: (Array|Uint8Array), freqs: (Array|Uint8Array)}} Tree-Transmit
  *     Symbols.
  */
 Zlib.RawDeflate.prototype.getTreeSymbols_ =
 function(hlit, litlenLengths, hdist, distLengths) {
   var src = new Array(hlit + hdist),
       i, j, runLength, l, length,
-      result = new Array(286 + 30), rpt, freqs = new Array(19);
+      result = new Array(286 + 30), nResult,
+      rpt, freqs = new Array(19);
 
   j = 0;
   for (i = 0; i < hlit; i++) {
@@ -624,10 +625,13 @@ function(hlit, litlenLengths, hdist, distLengths) {
 
 /**
  * ハフマン符号の長さを取得する
+ * @param {!Array|Uint8Array} freqs 出現カウント.
+ * @param {number=} opt_limit 符号長の制限.
  * @private
  */
-Zlib.RawDeflate.prototype.getLengths_ = function(freqs, limit) {
+Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
   var nSymbols = freqs.length,
+      nActiveSymbols,
       max = 2 * nSymbols,
       heap = new Zlib.Heap(max),
       parent = new Array(max),
@@ -655,16 +659,16 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, limit) {
   }
 
   // limit が決まっている場合は調整する
-  if ((limit | 0) > 0) {
+  if ((opt_limit | 0) > 0) {
     totalFreq = 0;
 
     // 引数チェック
-    if (limit !== 7 && limit !== 15) {
+    if (opt_limit !== 7 && opt_limit !== 15) {
       throw 'invalid limit number';
     }
 
     // 調整用パラメータの算出
-    maxProb = (limit === 15) ? 2584 : 55;
+    maxProb = (opt_limit === 15) ? 2584 : 55;
     nActiveSymbols = nSymbols - freqsZero.length;
     num = totalFreq - smallestFreq * maxProb;
     denom = maxProb - (nSymbols - freqsZero.length);

@@ -65,7 +65,7 @@ Zlib.Util.convertNetworkByteOrder = function(number, padding) {
 
 /**
  * 配列風のオブジェクトの部分コピー
- * @param {Object} arraylike 配列風オブジェクト.
+ * @param {Array|Uint8Array} arraylike 配列風オブジェクト.
  * @param {number} start コピー開始インデックス.
  * @param {number} length コピーする長さ.
  * @return {Array} 部分コピーした配列.
@@ -92,9 +92,9 @@ Zlib.Util.slice = function(arraylike, start, length) {
 /**
  * 配列風のオブジェクトの結合
  * 結合先の配列に結合元の配列を追加します.
- * @param {Object} arraylike1 結合先配列.
- * @param {Object} arraylike2 結合元配列.
- * @return {Object} 結合後の配列.
+ * @param {Array|Uint8Array} arraylike1 結合先配列.
+ * @param {Array|Uint8Array} arraylike2 結合元配列.
+ * @return {Array|Uint8Array} 結合後の配列.
  */
 Zlib.Util.concat = function(arraylike1, arraylike2) {
   var length1 = arraylike1.length,
@@ -112,7 +112,8 @@ Zlib.Util.concat = function(arraylike1, arraylike2) {
       }
       return arraylike1;
     } else {
-      return Array.prototype.push.apply(arraylike1, arraylike2);
+      Array.prototype.push.apply(arraylike1, arraylike2);
+      return arraylike1;
     }
   }
 

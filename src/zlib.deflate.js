@@ -41,15 +41,25 @@ goog.scope(function() {
 
 /**
  * Zlib Deflate
- * @param {Array|string} buffer Data.
- * @param {Zlib.Deflate.CompressionType=} Compression Type
+ * @param {!Array|Uint8Array} buffer Data.
+ * @param {Zlib.Deflate.CompressionType=} opt_compressionType Compression Type
  *     (Default: Fixed Huffman).
- * @return {Array} compressed data byte array.
  * @constructor
  */
 Zlib.Deflate = function(buffer, opt_compressionType) {
+  /**
+   * Deflate 符号化対象のバッファ
+   * @type {Array|Uint8Array}
+   */
   this.buffer = buffer;
+
+  /**
+   * 圧縮タイプ(非圧縮, 固定ハフマン符号, カスタムハフマン符号)
+   * デフォルトでは固定ハフマン符号が使用される.
+   * @type {Zlib.Deflate.CompressionType}
+   */
   this.compressionType = Zlib.Deflate.CompressionType.FIXED;
+
   if (opt_compressionType) {
     this.compressionType = opt_compressionType;
   }
@@ -77,7 +87,7 @@ goog.exportSymbol(
 
 /**
  * 直接圧縮に掛ける
- * @param {Array|string} buffer Data.
+ * @param {!Array|Uint8Array} buffer Data.
  * @param {Object=} opt_param parameters.
  * @return {Array} compressed data byte array.
  */
@@ -193,7 +203,7 @@ Zlib.Deflate.prototype.makeBlocks = function() {
 
 /**
  * 非圧縮ブロックの作成
- * @param {string} blockString ブロックデータ文字列.
+ * @param {Array} blockArray ブロックデータ byte array.
  * @param {boolean} isFinalBlock 最後のブロックならばtrue.
  * @return {Array} 非圧縮ブロック byte array.
  */
@@ -260,7 +270,7 @@ function(blockArray, isFinalBlock) {
       litLenLengths, litLenCodes, distLengths, distCodes,
       treeSymbols, treeLengths,
       transLengths = new Array(19),
-      codeLengths, codeCodes, code,
+      codeLengths, codeCodes, code, bitlen,
       i, l;
 
   // header
@@ -312,12 +322,17 @@ function(blockArray, isFinalBlock) {
     // extra bits
     if (code >= 16) {
       i++;
+      switch (code) {
+        case 16: bitlen = 2; break;
+        case 17: bitlen = 3; break;
+        case 18: bitlen = 7; break;
+        default:
+          throw 'invalid code: ' + code;
+      }
+
       stream.writeBits(
         treeSymbols.codes[i],
-        (code === 16) ? 2 :
-        (code === 17) ? 3 :
-        (code === 18) ? 7 :
-        (function() { throw 'invalid code'; })(),
+        bitlen,
         true
       );
     }

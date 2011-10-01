@@ -108,7 +108,7 @@ Zlib.Heap.prototype.push = function(index, value) {
  */
 Zlib.Heap.prototype.pop = function() {
   var index, value,
-      heap = this.buffer,
+      heap = this.buffer, swap,
       current, parent;
 
   index = heap[0];
