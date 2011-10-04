@@ -1,9 +1,8 @@
 /**
  * zlib.js
  * JavaScript Zlib and Deflate Library
- */
-/**
- * @license The MIT License
+ *
+ * The MIT License
  *
  * Copyright (c) 2011 imaya
  *

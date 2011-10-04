@@ -20,7 +20,10 @@
 	</target>
 
 	<!-- Zlib の単体ビルド -->
-	<target name="zlib" description="Zlib(RFC1950), Deflate(RFC1951) 部分の独立ビルドを行う" >
+	<target name="zlib" depends="deps" description="Zlib(RFC1950), Deflate(RFC1951) 部分の独立ビルドを行う" >
+		<!-- 出力ファイル名 -->
+		<property name="outfile" value="${bin}/zlib.deflate.min.js" />
+		<!-- ビルド(出力先は一時ファイル) -->
 		<exec dir="${src}" executable="python" failonerror="true">
 			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
 			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
@@ -34,28 +37,50 @@
 			<arg line="--root=." />
 			<arg line="--namespace=Zlib" />
 			<arg line="-o compiled" />
-			<arg line="--output_file=../${bin}/zlib.deflate.min.js" />
+			<arg line="--output_file=../${outfile}.tmp" />
 		</exec>
+		<!-- ライセンスとビルドされたファイルをプロパティとして読み込む -->
+		<loadfile property="license" srcfile="${src}/zlib.license" />
+		<loadfile property="output" srcfile="${outfile}.tmp" />
+		<!-- ライセンスとビルドされたファイルの結合 -->
+		<echo file="${outfile}" append="no" message="${license}" />
+		<echo file="${outfile}" append="yes" message="${output}"/>
+		<fixcrlf file="${outfile}" eol="unix" eof="remove" />
+		<!-- 一時ファイルの削除 -->
+		<delete file="${outfile}.tmp" />
 	</target>
 
 	<!-- デバッグ版のビルド -->
-	<target name="debug" description="デバッグ版のファイル debug.js を作成する" >
+	<target name="debug" depends="deps" description="デバッグ版のファイル debug.js を作成する" >
+		<!-- 出力ファイル名 -->
+		<property name="outfile" value="${bin}/canvas2png.debug.js" />
+		<!-- ビルド(出力先は一時ファイル) -->
 		<exec dir="${src}" executable="python" failonerror="true">
 			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
 			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
 			<arg line="-f &quot;--compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
 			<arg line="-f &quot;--externs=externs.js&quot;" />
+			<arg line="-f &quot;--output_wrapper='(function() {%output%})();'&quot;" />
 			<arg line="--root=../${vendor}/google-closure-library/closure" />
 			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
 			<arg line="--root=." />
-			<arg line="--namespace=Canvas2PNG" />
+			<arg line="--namespace=Canvas2PNG.Library" />
 			<arg line="-o compiled" />
-			<arg line="--output_file=../${bin}/canvas2png.debug.js" />
+			<arg line="--output_file=../${outfile}.tmp" />
 		</exec>
+		<!-- ライセンスとビルドされたファイルをプロパティとして読み込む -->
+		<loadfile property="license" srcfile="${src}/canvas2png.license" />
+		<loadfile property="output" srcfile="${outfile}.tmp" />
+		<!-- ライセンスとビルドされたファイルの結合 -->
+		<echo file="${outfile}" append="no" message="${license}" />
+		<echo file="${outfile}" append="yes" message="${output}"/>
+		<fixcrlf file="${outfile}" eol="unix" eof="remove" />
+		<!-- 一時ファイルの削除 -->
+		<delete file="${outfile}.tmp" />
 	</target>
 
 	<!-- リリース版のビルド -->
-	<target name="release" description="リリース版のファイル release.js を作成する" >
+	<target name="release" depends="deps" description="リリース版のファイル release.js を作成する" >
 		<exec dir="${src}" executable="python" failonerror="true">
 			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
 			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
