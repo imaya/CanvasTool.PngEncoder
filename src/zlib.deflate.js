@@ -64,7 +64,6 @@ Zlib.Deflate = function(buffer, opt_compressionType) {
     this.compressionType = opt_compressionType;
   }
 };
-goog.exportSymbol('Zlib.Deflate', Zlib.Deflate);
 
 // Zlib.Util のエイリアス
 var concat = Zlib.Util.concat;
@@ -80,10 +79,6 @@ Zlib.Deflate.CompressionType = {
   CUSTOM: 2,
   RESERVED: 3
 };
-goog.exportSymbol(
-  'Zlib.Deflate.CompressionType',
-  Zlib.Deflate.CompressionType
-);
 
 /**
  * 直接圧縮に掛ける
@@ -96,10 +91,6 @@ Zlib.Deflate.compress = function(buffer, opt_param) {
 
   return deflate.compress(opt_param);
 };
-goog.exportSymbol(
-  'Zlib.Deflate.compress',
-  Zlib.Deflate.compress
-);
 
 /**
  * Deflate Compression
@@ -350,6 +341,26 @@ function(blockArray, isFinalBlock) {
   return stream.finite();
 };
 
+//*****************************************************************************
+// export
+//*****************************************************************************
+
+/**
+ * @define {boolean} no export symbols.
+ */
+Zlib.Deflate.NO_EXPORT = false;
+
+if (!Zlib.Deflate.NO_EXPORT) {
+  goog.exportSymbol('Zlib.Deflate', Zlib.Deflate);
+  goog.exportSymbol(
+    'Zlib.Deflate.CompressionType',
+    Zlib.Deflate.CompressionType
+  );
+  goog.exportSymbol(
+    'Zlib.Deflate.compress',
+    Zlib.Deflate.compress
+  );
+}
 
 // end of scope
 });

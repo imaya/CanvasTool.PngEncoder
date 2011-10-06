@@ -61,6 +61,7 @@
 			<arg line="-f &quot;--compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
 			<arg line="-f &quot;--externs=externs.js&quot;" />
 			<arg line="-f &quot;--output_wrapper='(function() {%output%})();'&quot;" />
+			<arg line="-f &quot;--define='Zlib.Deflate.NO_EXPORT=true'&quot;" />
 			<arg line="--root=../${vendor}/google-closure-library/closure" />
 			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
 			<arg line="--root=." />

@@ -154,7 +154,6 @@ Canvas2PNG.Library = function(canvas, opt_param) {
   // バリデーション
   this.validate_();
 };
-goog.exportSymbol('Canvas2PNG', Canvas2PNG.Library);
 
 /**
  * チャンクタイプ
@@ -1191,6 +1190,49 @@ function unshift_(dst, src) {
 }
 
 
+//*****************************************************************************
+// export
+//*****************************************************************************
+
+/**
+ * @define {boolean} no export symbols.
+ */
+Canvas2PNG.NO_EXPORT = false;
+
+if (!Canvas2PNG.NO_EXPORT) {
+  goog.exportSymbol('Canvas2PNG', Canvas2PNG.Library);
+  goog.exportSymbol(
+    'Canvas2PNG.ChunkType',
+    Canvas2PNG.Library.ChunkType
+  );
+  goog.exportSymbol(
+    'Canvas2PNG.CompressionMethod',
+    Canvas2PNG.Library.CompressionMethod
+  );
+  goog.exportSymbol(
+    'Canvas2PNG.ColourType',
+    Canvas2PNG.Library.ColourType
+  );
+  goog.exportSymbol(
+    'Canvas2PNG.FilterMethod',
+    Canvas2PNG.Library.FilterMethod
+  );
+  goog.exportSymbol(
+    'Canvas2PNG.BasicFilterType',
+    Canvas2PNG.Library.BasicFilterType
+  );
+  goog.exportSymbol(
+    'Canvas2PNG.InterlaceMethod',
+    Canvas2PNG.Library.InterlaceMethod
+  );
+  goog.exportProperty(
+    Canvas2PNG.Library.prototype,
+    'convert',
+    Canvas2PNG.Library.prototype.convert
+  );
+}
+
+// end of scope
 });
 
 /* vim: set expandtab ts=2 sw=2 tw=80: */
