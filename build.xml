@@ -28,7 +28,10 @@
 			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
 			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
 			<arg line="-f &quot;--warning_level=VERBOSE&quot;" />
-			<arg line="-f &quot;--compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
+			<!--
+			XXX: ADVANCED_OPTIMIZATIONS でビルドすると実行速度が著しく低下する事がある.
+			<arg line="-f &quot;-compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
+			-->
 			<arg line="-f &quot;--externs=externs-zlib.js&quot;" />
 			<arg line="-f &quot;--define=goog.DEBUG=false&quot;" />
 			<arg line="-f &quot;--output_wrapper='(function() {%output%})();'&quot;" />
