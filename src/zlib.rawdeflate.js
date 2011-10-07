@@ -53,21 +53,21 @@ var concat = Zlib.Util.concat;
 var slice = Zlib.Util.slice;
 
 /**
- * LZSS の最小マッチ長
+ * LZ77 の最小マッチ長
  * @type {number}
  * @const
  */
-Zlib.RawDeflate.LzssMinLength = 3;
+Zlib.RawDeflate.Lz77MinLength = 3;
 
 /**
- * LZSS の最大マッチ長
+ * LZ77 の最大マッチ長
  * @type {number}
  * @const
  */
-Zlib.RawDeflate.LzssMaxLength = 258;
+Zlib.RawDeflate.Lz77MaxLength = 258;
 
 /**
- * LZSS のウィンドウサイズ
+ * LZ77 のウィンドウサイズ
  * @type {number}
  * @const
  */
@@ -104,12 +104,12 @@ Zlib.RawDeflate.FixedHuffmanTable = (function() {
 })();
 
 /**
- * カスタムハフマン符号化
- * @param {Array} dataArray LZSS 符号化済み byte array.
+ * 動的ハフマン符号化(カスタムハフマンテーブル)
+ * @param {Array} dataArray LZ77 符号化済み byte array.
  * @param {Zlib.BitStream=} stream 書き込み用ビットストリーム.
  * @return {Zlib.BitStream} ハフマン符号化済みビットストリームオブジェクト.
  */
-Zlib.RawDeflate.prototype.customHuffman =
+Zlib.RawDeflate.prototype.dynamicHuffman =
 function(dataArray, litLen, dist, stream) {
   var index, length, literal, code, bitlen, extra,
       litLenCodes, litLenLengths, distCodes, distLengths;
@@ -153,7 +153,7 @@ function(dataArray, litLen, dist, stream) {
 
 /**
  * 固定ハフマン符号化
- * @param {Array} dataArray LZSS 符号化済み byte array.
+ * @param {Array} dataArray LZ77 符号化済み byte array.
  * @param {Zlib.BitStream=} stream 書き込み用ビットストリーム.
  * @return {Array} ハフマン符号化済み byte array.
  */
@@ -188,7 +188,7 @@ Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
     }
   }
 
-  return stream.finite();
+  return stream.finish();
 };
 
 /**
@@ -197,7 +197,7 @@ Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
  * @param {number} backwordDistance マッチ位置との距離.
  * @constructor
  */
-function LzssMatch(length, backwordDistance) {
+function Lz77Match(length, backwordDistance) {
   this.length = length;
   this.backwordDistance = backwordDistance;
 }
@@ -208,7 +208,7 @@ function LzssMatch(length, backwordDistance) {
  * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列.
  * @private
  */
-LzssMatch.prototype.getLengthCode_ = function(length) {
+Lz77Match.prototype.getLengthCode_ = function(length) {
   var r;
 
     switch (true) {
@@ -253,7 +253,7 @@ LzssMatch.prototype.getLengthCode_ = function(length) {
  * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列.
  * @private
  */
-LzssMatch.prototype.getDistanceCode_ = function(dist) {
+Lz77Match.prototype.getDistanceCode_ = function(dist) {
   var r;
 
   switch (true) {
@@ -294,12 +294,12 @@ LzssMatch.prototype.getDistanceCode_ = function(dist) {
 };
 
 /**
- * マッチ情報を LZSS 符号化配列で返す.
+ * マッチ情報を LZ77 符号化配列で返す.
  * なお、ここでは以下の内部仕様で符号化している
  * [ CODE, EXTRA-BIT-LEN, EXTRA, CODE, EXTRA-BIT-LEN, EXTRA ]
- * @return {Array} LZSS 符号化 byte array.
+ * @return {Array} LZ77 符号化 byte array.
  */
-LzssMatch.prototype.toLzssArray = function() {
+Lz77Match.prototype.toLz77Array = function() {
   var length = this.length,
       dist = this.backwordDistance,
       codeArray = [];
@@ -315,22 +315,22 @@ LzssMatch.prototype.toLzssArray = function() {
 };
 
 /**
- * LZSS 実装
- * @param {Array|Uint8Array} dataArray LZSS 符号化するバイト配列.
- * @return {Array} LZSS 符号化した配列.
+ * LZ77 実装
+ * @param {Array|Uint8Array} dataArray LZ77 符号化するバイト配列.
+ * @return {Array} LZ77 符号化した配列.
  */
-Zlib.RawDeflate.prototype.lzss = function(dataArray) {
+Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
   var position, length, i, l,
       matchKey, matchKeyArray,
       table = this.matchTable,
       longestMatch,
       currentMatchList, matchList, matchIndex, matchLength, matchPosition,
-      lzssbuf = [], skipLength = 0, lzssArray,
-      isCustom, freqsLitLen = [], freqsDist = [];
+      lz77buf = [], skipLength = 0, lz77Array,
+      isDynamic, freqsLitLen = [], freqsDist = [];
 
-  isCustom = (this.compressionType === Zlib.Deflate.CompressionType.CUSTOM);
+  isDynamic = (this.compressionType === Zlib.Deflate.CompressionType.DYNAMIC);
 
-  if (isCustom) {
+  if (isDynamic) {
     // XXX: magic number
     for (i = 0; i <= 285; i++) {
       freqsLitLen[i] = 0;
@@ -345,14 +345,14 @@ Zlib.RawDeflate.prototype.lzss = function(dataArray) {
   for (position = 0; position < length; position++) {
     // 最小マッチ長分のキーを作成する
     matchKeyArray =
-      slice(dataArray, position, Zlib.RawDeflate.LzssMinLength);
+      slice(dataArray, position, Zlib.RawDeflate.Lz77MinLength);
 
     // 終わりの方でもうマッチしようがない場合はそのまま流し込む
-    if (matchKeyArray.length < Zlib.RawDeflate.LzssMinLength &&
+    if (matchKeyArray.length < Zlib.RawDeflate.Lz77MinLength &&
         skipLength === 0) {
-      concat(lzssbuf, matchKeyArray);
+      concat(lz77buf, matchKeyArray);
 
-      if (isCustom) {
+      if (isDynamic) {
         for (i = 0, l = matchKeyArray.length; i < l; i++) {
           freqsLitLen[matchKeyArray[i]]++;
         }
@@ -401,22 +401,22 @@ Zlib.RawDeflate.prototype.lzss = function(dataArray) {
       if (matchList.length > 0) {
         // 最長マッチの探索
         longestMatch = this.searchLongestMatch_(dataArray, position, matchList);
-        lzssArray = longestMatch.toLzssArray();
+        lz77Array = longestMatch.toLz77Array();
 
-        // LZSS 符号化を行い結果に格納
-        concat(lzssbuf, lzssArray);
-        if (isCustom) {
-          freqsLitLen[lzssArray[0]]++;
-          freqsDist[lzssArray[3]]++;
+        // LZ77 符号化を行い結果に格納
+        concat(lz77buf, lz77Array);
+        if (isDynamic) {
+          freqsLitLen[lz77Array[0]]++;
+          freqsDist[lz77Array[3]]++;
         }
 
         // 最長マッチの長さだけ進む
         skipLength = longestMatch.length - 1;
       } else {
-        if (isCustom) {
+        if (isDynamic) {
           freqsLitLen[dataArray[position]]++;
         }
-        lzssbuf.push(dataArray[position]);
+        lz77buf.push(dataArray[position]);
       }
     }
 
@@ -425,14 +425,14 @@ Zlib.RawDeflate.prototype.lzss = function(dataArray) {
   }
 
   // 終端コードの追加
-  if (isCustom) {
+  if (isDynamic) {
     freqsLitLen[256]++;
     this.freqsLitLen = freqsLitLen;
     this.freqsDist = freqsDist;
   }
-  lzssbuf[lzssbuf.length] = 256;
+  lz77buf[lz77buf.length] = 256;
 
-  return lzssbuf;
+  return lz77buf;
 };
 
 /**
@@ -440,7 +440,7 @@ Zlib.RawDeflate.prototype.lzss = function(dataArray) {
  * @param {Object} dataArray 現在のウィンドウ.
  * @param {number} position 現在のウィンドウ位置.
  * @param {Array.<number>} matchList 候補となる位置の配列.
- * @return {LzssMatch} 最長かつ最短距離のマッチオブジェクト.
+ * @return {Lz77Match} 最長かつ最短距離のマッチオブジェクト.
  * @private
  */
 Zlib.RawDeflate.prototype.searchLongestMatch_ =
@@ -449,10 +449,10 @@ function(dataArray, position, matchList) {
       matchTarget,
       matchLength, matchLimit,
       match, matchIndex, matchListLength,
-      minLength = Zlib.RawDeflate.LzssMinLength,
+      minLength = Zlib.RawDeflate.Lz77MinLength,
       matchStep = 8, i, matchEqual;
 
-  matchLimit = Zlib.RawDeflate.LzssMaxLength;
+  matchLimit = Zlib.RawDeflate.Lz77MaxLength;
 
   // 候補の中から最長マッチの物を探す
   lastMatch = matchList;
@@ -513,7 +513,7 @@ function(dataArray, position, matchList) {
   }
 
   // 最長のマッチ候補の中で距離が最短のものを選ぶ(拡張ビットが短く済む)
-  return new LzssMatch(
+  return new Lz77Match(
     matchLength,
     position - Math.max.apply(this, lastMatch)
   );

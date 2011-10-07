@@ -19,7 +19,31 @@ function setUp() {
 function tearDown() {
 }
 
-function testDeflateRandom() {
+function testDeflateNoneRandom() {
+	random(Zlib.Deflate.CompressionType.NONE);
+}
+
+function testDeflateNoneIncrease() {
+	increase(Zlib.Deflate.CompressionType.NONE);
+}
+
+function testDeflateFixedRandom() {
+	random(Zlib.Deflate.CompressionType.FIXED);
+}
+
+function testDeflateFixedIncrease() {
+	increase(Zlib.Deflate.CompressionType.FIXED);
+}
+
+function testDeflateDynamicRandom() {
+	random(Zlib.Deflate.CompressionType.DYNAMIC);
+}
+
+function testDeflateDynamicIncrease() {
+	increase(Zlib.Deflate.CompressionType.DYNAMIC);
+}
+
+function random(compressionType) {
 	var testData = [];
 	var deflate;
 	var inflateUint8Array;
@@ -32,7 +56,9 @@ function testDeflateRandom() {
 	G_testRunner.log("Source Size: " + testData.length);
 
 	// deflate
-	deflate = Zlib.Deflate.compress(testData);
+	deflate = Zlib.Deflate.compress(testData, {
+		compressionType: compressionType
+	});
 	G_testRunner.log("Deflate Size: " + deflate.length);
 
 	// inflate
@@ -47,7 +73,7 @@ function testDeflateRandom() {
 	assertArrayEquals("deflate -> inflate random", testData, inflate);
 }
 
-function testDeflateIncrease() {
+function increase(compressionType) {
 	var testData = [];
 	var deflate;
 	var inflateUint8Array;
@@ -60,7 +86,9 @@ function testDeflateIncrease() {
 	G_testRunner.log("Source Size: " + testData.length);
 
 	// deflate
-	deflate = Zlib.Deflate.compress(testData);
+	deflate = Zlib.Deflate.compress(testData, {
+		compressionType: compressionType
+	});
 	G_testRunner.log("Deflate Size: " + deflate.length);
 
 	// inflate

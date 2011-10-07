@@ -42,11 +42,10 @@ goog.scope(function() {
 /**
  * Zlib Deflate
  * @param {!Array|Uint8Array} buffer Data.
- * @param {Zlib.Deflate.CompressionType=} opt_compressionType Compression Type
- *     (Default: Fixed Huffman).
+ * @param {Object=} opt_params marameters.
  * @constructor
  */
-Zlib.Deflate = function(buffer, opt_compressionType) {
+Zlib.Deflate = function(buffer, opt_params) {
   /**
    * Deflate 符号化対象のバッファ
    * @type {Array|Uint8Array}
@@ -54,15 +53,24 @@ Zlib.Deflate = function(buffer, opt_compressionType) {
   this.buffer = buffer;
 
   /**
-   * 圧縮タイプ(非圧縮, 固定ハフマン符号, カスタムハフマン符号)
-   * デフォルトでは固定ハフマン符号が使用される.
+   * 圧縮タイプ(非圧縮, 固定ハフマン符号, 動的ハフマン符号)
+   * デフォルトでは動的ハフマン符号が使用される.
    * @type {Zlib.Deflate.CompressionType}
    */
-  this.compressionType = Zlib.Deflate.CompressionType.FIXED;
+  this.compressionType = Zlib.Deflate.CompressionType.DYNAMIC;
 
-  if (opt_compressionType) {
-    this.compressionType = opt_compressionType;
+  if (typeof(opt_params) === 'object') {
+    if (typeof(opt_params.compressionType) === 'number') {
+      this.compressionType = opt_params.compressionType;
+    }
   }
+
+  /**
+   * Deflate アルゴリズム実装
+   * @type {Zlib.RawDeflate}
+   */
+  this.rawDeflate = new Zlib.RawDeflate(this.compressionType);
+
 };
 
 // Zlib.Util のエイリアス
@@ -76,28 +84,27 @@ var convertNetworkByteOrder = Zlib.Util.convertNetworkByteOrder;
 Zlib.Deflate.CompressionType = {
   NONE: 0,
   FIXED: 1,
-  CUSTOM: 2,
+  DYNAMIC: 2,
   RESERVED: 3
 };
 
 /**
  * 直接圧縮に掛ける
  * @param {!Array|Uint8Array} buffer Data.
- * @param {Object=} opt_param parameters.
+ * @param {Object=} opt_params parameters.
  * @return {Array} compressed data byte array.
  */
-Zlib.Deflate.compress = function(buffer, opt_param) {
-  var deflate = new Zlib.Deflate(buffer);
+Zlib.Deflate.compress = function(buffer, opt_params) {
+  var deflate = new Zlib.Deflate(buffer, opt_params);
 
-  return deflate.compress(opt_param);
+  return deflate.compress();
 };
 
 /**
  * Deflate Compression
- * @param {Object=} opt_param parameters.
  * @return {Array} compressed data byte array.
  */
-Zlib.Deflate.prototype.compress = function(opt_param) {
+Zlib.Deflate.prototype.compress = function() {
   var cmf, flg, cm, cinfo, fcheck, fdict, flevel,
       clevel, compressedData, adler, error = false, deflate;
 
@@ -119,7 +126,7 @@ Zlib.Deflate.prototype.compress = function(opt_param) {
       switch (this.compressionType) {
         case Zlib.Deflate.CompressionType.NONE: flevel = 0; break;
         case Zlib.Deflate.CompressionType.FIXED: flevel = 1; break;
-        case Zlib.Deflate.CompressionType.CUSTOM: flevel = 2; break;
+        case Zlib.Deflate.CompressionType.DYNAMIC: flevel = 2; break;
         default: throw 'unsupported compression type';
       }
       break;
@@ -179,10 +186,10 @@ Zlib.Deflate.prototype.makeBlocks = function() {
         this.makeFixedHuffmanBlock(this.buffer, true)
       );
       break;
-    case Zlib.Deflate.CompressionType.CUSTOM:
+    case Zlib.Deflate.CompressionType.DYNAMIC:
       concat(
         blocks,
-        this.makeCustomHuffmanBlock(this.buffer, true)
+        this.makeDynamicHuffmanBlock(this.buffer, true)
       );
       break;
     default:
@@ -239,20 +246,20 @@ function(blockArray, isFinalBlock) {
   stream.writeBits(bfinal, 1, true);
   stream.writeBits(btype, 2, true);
 
-  deflate = new Zlib.RawDeflate(this.compressionType);
-  data = deflate.lzss(blockArray);
+  deflate = this.rawDeflate;
+  data = deflate.lz77(blockArray);
   data = deflate.fixedHuffman(data, stream);
 
   return data;
 };
 
 /**
- * カスタムハフマンブロックの作成
+ * 動的ハフマンブロックの作成
  * @param {Array} blockArray ブロックデータ byte array.
  * @param {boolean} isFinalBlock 最後のブロックならばtrue.
- * @return {Array} カスタムハフマン符号ブロック byte array.
+ * @return {Array} 動的ハフマン符号ブロック byte array.
  */
-Zlib.Deflate.prototype.makeCustomHuffmanBlock =
+Zlib.Deflate.prototype.makeDynamicHuffmanBlock =
 function(blockArray, isFinalBlock) {
   var stream = new Zlib.BitStream(), bfinal, btype, data, deflate,
       hlit, hdist, hclen,
@@ -266,13 +273,13 @@ function(blockArray, isFinalBlock) {
 
   // header
   bfinal = isFinalBlock ? 1 : 0;
-  btype = Zlib.Deflate.CompressionType.CUSTOM;
+  btype = Zlib.Deflate.CompressionType.DYNAMIC;
 
   stream.writeBits(bfinal, 1, true);
   stream.writeBits(btype, 2, true);
 
-  deflate = new Zlib.RawDeflate(this.compressionType);
-  data = deflate.lzss(blockArray);
+  deflate = this.rawDeflate;
+  data = deflate.lz77(blockArray);
 
   // リテラル・長さ, 距離のハフマン符号と符号長の算出
   litLenLengths = deflate.getLengths_(deflate.freqsLitLen);
@@ -329,7 +336,7 @@ function(blockArray, isFinalBlock) {
     }
   }
 
-  deflate.customHuffman(
+  deflate.dynamicHuffman(
     data,
     [litLenCodes, litLenLengths],
     [distCodes, distLengths],
@@ -338,7 +345,7 @@ function(blockArray, isFinalBlock) {
 
   stream.writeBits(litLenCodes[256], litLenLengths[256], true);
 
-  return stream.finite();
+  return stream.finish();
 };
 
 //*****************************************************************************

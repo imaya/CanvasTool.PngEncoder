@@ -79,7 +79,7 @@ Zlib.BitStream.prototype.writeBits = function(number, n, reverse) {
  * ストリームの終端処理を行う
  * @return {Array} 終端処理後のバッファを byte array で返す.
  */
-Zlib.BitStream.prototype.finite = function() {
+Zlib.BitStream.prototype.finish = function() {
   if (this.bitindex > 0) {
     this.buffer[this.index] <<= 8 - this.bitindex;
   }
