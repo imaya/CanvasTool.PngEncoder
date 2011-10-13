@@ -42,7 +42,8 @@ goog.scope(function() {
 /**
  * Zlib Deflate
  * @param {!Array|Uint8Array} buffer Data.
- * @param {Object=} opt_params marameters.
+ * @param {{compressionType: Zlib.Deflate.CompressionType}=} opt_params
+ *     parameters.
  * @constructor
  */
 Zlib.Deflate = function(buffer, opt_params) {
@@ -91,7 +92,8 @@ Zlib.Deflate.CompressionType = {
 /**
  * íºê⁄à≥èkÇ…ä|ÇØÇÈ
  * @param {!Array|Uint8Array} buffer Data.
- * @param {Object=} opt_params parameters.
+ * @param {{compressionType: Zlib.Deflate.CompressionType}=} opt_params
+ *     parameters.
  * @return {Array} compressed data byte array.
  */
 Zlib.Deflate.compress = function(buffer, opt_params) {
@@ -343,7 +345,7 @@ function(blockArray, isFinalBlock) {
     stream
   );
 
-  stream.writeBits(litLenCodes[256], litLenLengths[256], true);
+//stream.writeBits(litLenCodes[256], litLenLengths[256], true);
 
   return stream.finish();
 };

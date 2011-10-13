@@ -73,15 +73,14 @@ Zlib.Heap.prototype.push = function(index, value) {
       swap;
 
   current = this.length;
-  heap[this.length] = index;
-  heap[this.length + 1] = value;
-  this.length += 2;
+  heap[this.length++] = value;
+  heap[this.length++] = index;
 
   // ルートノードにたどり着くまで入れ替えを試みる
   while (current > 0) {
     parent = this.getParent(current);
 
-    // 親ノードと値を比較して親の方が大きければ値と index を入れ替える
+    // 親ノードと比較して親の方が大きければ値と index を入れ替える
     if (heap[current + 1] < heap[parent + 1]) {
       swap = heap[current];
       heap[current] = heap[parent];
@@ -111,13 +110,13 @@ Zlib.Heap.prototype.pop = function() {
       heap = this.buffer, swap,
       current, parent;
 
-  index = heap[0];
-  value = heap[1];
+  value = heap[0];
+  index = heap[1];
 
   // 後ろから値を取る
-  heap[0] = heap[this.length - 2];
-  heap[1] = heap[this.length - 1];
   this.length -= 2;
+  heap[0] = heap[this.length];
+  heap[1] = heap[this.length + 1];
 
   parent = 0;
   // ルートノードから下がっていく
@@ -136,13 +135,13 @@ Zlib.Heap.prototype.pop = function() {
 
     // 親ノードと比較して親の方が大きい場合は入れ替える
     if (heap[parent + 1] > heap[current + 1]) {
-      swap = heap[current];
-      heap[current] = heap[parent];
-      heap[parent] = swap;
+      swap = heap[parent];
+      heap[parent] = heap[current];
+      heap[current] = swap;
 
-      swap = heap[current + 1];
-      heap[current + 1] = heap[parent + 1];
-      heap[parent + 1] = swap;
+      swap = heap[parent + 1];
+      heap[parent + 1] = heap[current + 1];
+      heap[current + 1] = swap;
     } else {
       break;
     }

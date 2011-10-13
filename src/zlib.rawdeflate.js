@@ -44,8 +44,8 @@ goog.scope(function() {
 Zlib.RawDeflate = function(type) {
   this.compressionType = type;
   this.matchTable = {};
-  this.freqsLitLen = null;
-  this.freqsDist = null;
+  this.freqsLitLen = [];
+  this.freqsDist = [];
 };
 
 // Zlib.Util のエイリアス
@@ -80,6 +80,12 @@ Zlib.RawDeflate.WindowSize = 0x8000;
  */
 Zlib.RawDeflate.MaxCodeLength = 16;
 
+/**
+ * ハフマン符号の最大数値
+ * @type {number}
+ * @const
+ */
+Zlib.RawDeflate.HUFMAX = 286;
 
 /**
  * 固定ハフマン符号の符号化テーブル
@@ -131,7 +137,7 @@ function(dataArray, litLen, dist, stream) {
     stream.writeBits(litLenCodes[literal], litLenLengths[literal], true);
 
     // 長さ・距離符号
-    if (literal > 0x100) {
+    if (literal > 256) {
       // length extra
       stream.writeBits(dataArray[++index], dataArray[++index], true);
       // distance
@@ -143,7 +149,7 @@ function(dataArray, litLen, dist, stream) {
       // distance extra
       stream.writeBits(dataArray[++index], dataArray[++index], true);
     // 終端
-    } else if (literal === 0x100) {
+    } else if (literal === 256) {
       break;
     }
   }
@@ -316,7 +322,7 @@ Lz77Match.prototype.toLz77Array = function() {
 
 /**
  * LZ77 実装
- * @param {Array|Uint8Array} dataArray LZ77 符号化するバイト配列.
+ * @param {Array} dataArray LZ77 符号化するバイト配列.
  * @return {Array} LZ77 符号化した配列.
  */
 Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
@@ -339,7 +345,11 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
     for (i = 0; i <= 29; i++) {
       freqsDist[i] = 0;
     }
+
+    // EOB の最低出現回数は 1
+    freqsLitLen[256] = 1;
   }
+
 
   length = dataArray.length;
   for (position = 0; position < length; position++) {
@@ -430,7 +440,7 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
     this.freqsLitLen = freqsLitLen;
     this.freqsDist = freqsDist;
   }
-  lz77buf[lz77buf.length] = 256;
+  lz77buf.push(256);
 
   return lz77buf;
 };
@@ -523,10 +533,10 @@ function(dataArray, position, matchList) {
  * Tree-Transmit Symbols の算出
  * reference: PuTTY Deflate implementation
  * @param {number} hlit HLIT.
- * @param {Array|Uint8Array} litlenLengths リテラルと長さ符号の符号長配列.
+ * @param {Array} litlenLengths リテラルと長さ符号の符号長配列.
  * @param {number} hdist HDIST.
- * @param {Array|Uint8Array} distLengths 距離符号の符号長配列.
- * @return {{codes: (Array|Uint8Array), freqs: (Array|Uint8Array)}} Tree-Transmit
+ * @param {Array} distLengths 距離符号の符号長配列.
+ * @return {{codes: Array.<number>, freqs: Array.<number>}} Tree-Transmit
  *     Symbols.
  */
 Zlib.RawDeflate.prototype.getTreeSymbols_ =
@@ -625,15 +635,17 @@ function(hlit, litlenLengths, hdist, distLengths) {
 
 /**
  * ハフマン符号の長さを取得する
- * @param {!Array|Uint8Array} freqs 出現カウント.
+ * reference: PuTTY Deflate implementation
+ * @param {Array} freqs 出現カウント.
  * @param {number=} opt_limit 符号長の制限.
+ * @return {Array.<number>} 符号長配列.
  * @private
  */
 Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
   var nSymbols = freqs.length,
       nActiveSymbols,
-      max = 2 * nSymbols,
-      heap = new Zlib.Heap(max),
+      max = 2 * Zlib.RawDeflate.HUFMAX - 1,
+      heap = new Zlib.Heap(2 * Zlib.RawDeflate.HUFMAX),
       parent = new Array(max),
       length = new Array(max),
       i, node1, node2,
@@ -671,7 +683,7 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
     maxProb = (opt_limit === 15) ? 2584 : 55;
     nActiveSymbols = nSymbols - freqsZero.length;
     num = totalFreq - smallestFreq * maxProb;
-    denom = maxProb - (nSymbols - freqsZero.length);
+    denom = maxProb - nActiveSymbols;
     adjust = ((num + denom - 1) / denom) | 0;
 
     // 非 0 要素の値を調整する
@@ -689,7 +701,7 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
   }
 
   // ヒープの構築
-  for (i = 0; i < max; i++) {
+  for (i = 0; i < nSymbols; i++) {
     if (freqs[i] > 0) {
       heap.push(i, freqs[i]);
     }
@@ -697,16 +709,17 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
 
   // ハフマン木の構築
   // ノードを2つ取り、その値の合計をヒープを戻していくことでハフマン木になる
-  for (i = nSymbols; heap.length > 2; i++) {
+  for (i = Zlib.RawDeflate.HUFMAX; heap.length > 2; i++) {
     node1 = heap.pop();
     node2 = heap.pop();
-    parent[node1.index] = parent[node2.index] = i;
+    parent[node1.index] = i;
+    parent[node2.index] = i;
     heap.push(i, node1.value + node2.value);
   }
 
   // ハフマン木から符号長に変換する
   for (; i >= 0; i--) {
-    if (typeof(parent[i]) !== 'undefined' && parent[i] > 0) {
+    if (parent[i] > 0) {
       length[i] = 1 + length[parent[i]];
     }
   }
@@ -717,8 +730,8 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
 /**
  * 符号長配列からハフマン符号を取得する
  * reference: PuTTY Deflate implementation
- * @param {Array|Uint8Array} lengths 符号長配列.
- * @return {Array|Uint8Array} ハフマン符号配列.
+ * @param {Array} lengths 符号長配列.
+ * @return {Array} ハフマン符号配列.
  * @private
  */
 Zlib.RawDeflate.prototype.getCodesFromLengths_ = function(lengths) {
