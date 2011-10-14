@@ -4,6 +4,7 @@
 <title>Zlib Test</title>
 <script src="../vendor/google-closure-library/closure/goog/base.js"></script>
 <script src="../vendor/png.js/zlib.js"></script>
+<script src="../vendor/mt.js/mt.js"></script>
 <script src="../bin/zlib.deflate.min.js"></script>
 <script>
 goog.require('goog.testing.jsunit');
@@ -17,6 +18,39 @@ function setUp() {
 }
 
 function tearDown() {
+}
+
+function testDeflateRandomInclease() {
+	var testData, deflate, inflateUint8Array, inflate = [],
+	min = 1000000, i, random1, random2,
+	seed = (new Date()).getTime(),
+	mt = new MersenneTwister(seed);
+
+	G_testRunner.log("Seed: " + seed);
+
+	testData = [];
+	while (testData.length < min) {
+		random1 = mt.nextInt(256);
+		random2 = mt.nextInt(256);
+		for (i = 0; i < random2; i++) {
+			testData.push((random1 + i) % 256);
+		}
+	}
+
+	deflate = Zlib.Deflate.compress(testData, {
+		compressionType: Zlib.Deflate.CompressionType.DYNAMIC
+	});
+	G_testRunner.log("Deflate Size: " + deflate.length);
+
+	inflateUint8Array = (new FlateStream(deflate)).getBytes();
+	G_testRunner.log("Inflate Size: " + inflateUint8Array.length);
+
+	// uint8array -> array
+	for (var i = 0, l = inflateUint8Array.length; i < l; i++) {
+		inflate[i] = inflateUint8Array[i];
+	}
+
+	assertArrayEquals("random inclease", testData, inflate);
 }
 
 function testDeflateNoneRandom() {
