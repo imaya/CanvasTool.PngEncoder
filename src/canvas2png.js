@@ -39,11 +39,61 @@ goog.scope(function() {
 
 /**
  * Canvas to PNG converter
- * @param {Element} canvas 対象となる Canvas エレメント.
- * @param {Object=} opt_param 変換オプション.
+ * @param {Element|Array|CanvasPixelArray} canvas 対象となる Canvas エレメント
+ *     もしくはその CanvasPixelArray 互換の配列.
+ * @param {Object=} opt_param 変換オプション. canvsa が Canvas エレメントの場合
+ *     以外では、かならず width と height が必要となる.
  * @constructor
  */
 Canvas2PNG.Library = function(canvas, opt_param) {
+  var ctx, width, heigth;
+  console.log(canvas);
+
+  /**
+   * @type {Array|CanvasPixelArray}
+   */
+  this.data = [];
+
+  if (canvas instanceof Element) {
+    width = canvas.width;
+    height = canvas.height;
+
+    /**
+     * 2D コンテキスト
+     * @type {Object}
+     */
+    ctx = canvas.getContext('2d');
+
+    this.data = ctx.getImageData(0, 0, width, height).data;
+  } else if (typeof(canvas.length) === 'number') {
+    if (typeof(opt_param) !== 'object') {
+      throw Error('need opt_param object');
+    }
+    if (typeof(opt_param.width) !== 'number') {
+      throw Error('width property not found');
+    }
+    if (typeof(opt_param.height) !== 'number') {
+      throw Error('height property not found');
+    }
+
+    width = opt_param.width;
+    height = opt_param.height;
+    this.data = canvas;
+  } else {
+    throw Error('invalid arguments');
+  }
+
+  this.setParameters(width, height, opt_param);
+};
+
+/**
+ * PNG パラメータの設定
+ * @param {number} width 横幅.
+ * @param {number} height 縦幅.
+ * @param {Object=} opt_param 変換オプション.
+ */
+Canvas2PNG.Library.prototype.setParameters =
+function(width, height, opt_param) {
   var param;
 
   if (typeof opt_param !== 'object') {
@@ -51,28 +101,16 @@ Canvas2PNG.Library = function(canvas, opt_param) {
   }
 
   /**
-   * Canvas エレメント
-   * @type {Element}
-   */
-  this.canvas = canvas;
-
-  /**
-   * 2D コンテキスト
-   * @type {Object}
-   */
-  this.ctx = canvas.getContext('2d');
-
-  /**
    * 横幅
    * @type {number}
    */
-  this.width = canvas.width;
+  this.width = width;
 
   /**
    * 縦幅
    * @type {number}
    */
-  this.height = canvas.height;
+  this.height = height;
 
   /**
    * ビット深度
@@ -120,7 +158,6 @@ Canvas2PNG.Library = function(canvas, opt_param) {
   for (param in opt_param) {
     this[param] = opt_param[param];
   }
-
 
   /**
    * フィルタメソッド
@@ -325,7 +362,7 @@ Canvas2PNG.Library.Adam7Table_ = [
  * PNGへ変換を行う
  * @return {string} PNGバイナリ.
  */
-Canvas2PNG.Library.prototype.convert = function() {
+Canvas2PNG.Library.prototype.convert = function(opt_canvasArray) {
   return String.fromCharCode.apply(this, this.makePng_());
 };
 
@@ -334,14 +371,13 @@ Canvas2PNG.Library.prototype.convert = function() {
  * @return {Array.<number>} パレットの配列.
  */
 Canvas2PNG.Library.prototype.getPalette = function() {
-  var palette, imageInfo, imageData;
+  var palette, imageInfo;
 
   if (typeof(this.palette_) === 'array') {
     return this.palette_;
   }
 
-  imageData = this.ctx.getImageData(0, 0, this.width, this.height);
-  imageInfo = this.makeImageArray(imageData.data);
+  imageInfo = this.makeImageArray(this.data);
   palette = imageInfo.PLTE;
 
   return palette.map(function(e) {
@@ -397,9 +433,7 @@ Canvas2PNG.Library.prototype.makePng_ = function() {
   push_(png, Canvas2PNG.Library.Signature);
   push_(png, this.makeIHDR_());
 
-  imageInfo = this.makeImageArray(
-    this.ctx.getImageData(0, 0, this.width, this.height).data
-  );
+  imageInfo = this.makeImageArray(this.data);
 
   switch (this.colourType) {
     case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
