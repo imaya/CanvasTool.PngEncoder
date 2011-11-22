@@ -679,7 +679,7 @@ CanvasTool.PngEncoder.prototype.makePng_ = function() {
 
   // iTXt
   if (typeof(this.itxt) === 'object' && this.itxt !== null) {
-    push_(png, this.makeiTXt_(this.itxt, this.compressionMethod));
+    push_(png, this.makeiTXt_(this.itxt));
   }
 
   // IDAT
@@ -724,7 +724,7 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
       paletteKeys = [],
       red = 0, green = 0, blue = 0, alpha = 0,
       histIndex = {}, hi = 0, hl = 0,
-      color, alpha, withAlpha, index, length, tmp, max, mod;
+      color, withAlpha, index, length, tmp, max, mod;
 
   /*
    * パレットの作成を ColourType に関わらず行っているのは
@@ -1161,7 +1161,6 @@ CanvasTool.PngEncoder.prototype.makesPLT_ = function(splt, hist) {
   var data = [],
       sortedHist,
       max = 0,
-      hist,
       i = 0,
       l = splt.num < 0 ? hist.length : splt.num,
       freq = 0,
@@ -1519,9 +1518,9 @@ CanvasTool.PngEncoder.prototype.makeIEND_ = function() {
 
 /**
  * Transparency
- * @param {(number|Array.<number>)} alpha α値.
+ * @param {Array.<number>} alpha α値.
  *     Indexed-Color では Palette に対応するα値の配列,
- *     Grayscale では透明として扱うグレーレベルの数値,
+ *     Grayscale では透明として扱うグレーレベルを [Gray],
  *     Truecolor では透明として扱う色を [Red, Green, Blue] で指定.
  * @return {Array.<number>} tRNS チャンクバイナリ byte array.
  * @private
@@ -1531,7 +1530,7 @@ CanvasTool.PngEncoder.prototype.maketRNS_ = function(alpha) {
 
   switch (this.colourType) {
     case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
-      push_(data, this.networkByteOrder_(alpha, 2));
+      push_(data, this.networkByteOrder_(alpha[0], 2));
       break;
     case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
       push_(data, this.networkByteOrder_(alpha[0], 2));
@@ -2083,10 +2082,11 @@ function unshift_(dst, src) {
  * @private
  */
 function bytearray_(str) {
-  var bytearray = str.split(''), i, l;
+  var srcarray = str.split(''),
+      bytearray = [], i, l;
 
-  for (i = 0, l = bytearray.length; i < l; i++) {
-    bytearray[i] = bytearray[i].charCodeAt(0);
+  for (i = 0, l = srcarray.length; i < l; i++) {
+    bytearray[i] = srcarray[i].charCodeAt(0);
   }
 
   return bytearray;
@@ -2178,6 +2178,11 @@ if (!CanvasTool.PngEncoder.NO_EXPORT) {
   goog.exportSymbol(
     'CanvasTool.PngEncoder.UnitSpecifier',
     CanvasTool.PngEncoder.UnitSpecifier
+  );
+  goog.exportProperty(
+    CanvasTool.PngEncoder.prototype,
+    'convert',
+    CanvasTool.PngEncoder.prototype.convert
   );
 }
 
