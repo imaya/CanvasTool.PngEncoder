@@ -1,5 +1,5 @@
 /**
- * canvas2png.js
+ * canvastool.pngencoder.js
  * JavaScript PNG Encoder
  *
  * The MIT License
@@ -30,7 +30,7 @@
  * @see http://www.w3.org/TR/PNG/
  */
 
-goog.provide('Canvas2PNG.Library');
+goog.provide('CanvasTool.PngEncoder');
 
 goog.require('Zlib');
 
@@ -45,7 +45,7 @@ goog.scope(function() {
  *     以外では、かならず width と height が必要となる.
  * @constructor
  */
-Canvas2PNG.Library = function(canvas, opt_param) {
+CanvasTool.PngEncoder = function(canvas, opt_param) {
   var ctx, width, height;
 
   /**
@@ -91,7 +91,7 @@ Canvas2PNG.Library = function(canvas, opt_param) {
  * @param {number} height 縦幅.
  * @param {Object=} opt_param 変換オプション.
  */
-Canvas2PNG.Library.prototype.setParameters =
+CanvasTool.PngEncoder.prototype.setParameters =
 function(width, height, opt_param) {
   var param;
 
@@ -119,33 +119,33 @@ function(width, height, opt_param) {
 
   /**
    * 色空間
-   * @type {Canvas2PNG.Library.ColourType}
+   * @type {CanvasTool.PngEncoder.ColourType}
    */
-  this.colourType = Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA;
+  this.colourType = CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA;
 
   /**
    * 圧縮方法
-   * @type {Canvas2PNG.Library.CompressionMethod}
+   * @type {CanvasTool.PngEncoder.CompressionMethod}
    */
-  this.compressionMethod = Canvas2PNG.Library.CompressionMethod.DEFLATE;
+  this.compressionMethod = CanvasTool.PngEncoder.CompressionMethod.DEFLATE;
 
   /**
    * フィルタ方法
-   * @type {Canvas2PNG.Library.FilterMethod}
+   * @type {CanvasTool.PngEncoder.FilterMethod}
    */
-  this.filterMethod = Canvas2PNG.Library.FilterMethod.BASIC;
+  this.filterMethod = CanvasTool.PngEncoder.FilterMethod.BASIC;
 
   /**
    * 基本フィルタのタイプ
-   * @type {Canvas2PNG.Library.BasicFilterType}
+   * @type {CanvasTool.PngEncoder.BasicFilterType}
    */
-  this.filterType = Canvas2PNG.Library.BasicFilterType.NONE;
+  this.filterType = CanvasTool.PngEncoder.BasicFilterType.NONE;
 
   /**
    * インタレース方法
-   * @type {Canvas2PNG.Library.InterlaceMethod}
+   * @type {CanvasTool.PngEncoder.InterlaceMethod}
    */
-  this.interlaceMethod = Canvas2PNG.Library.InterlaceMethod.NONE;
+  this.interlaceMethod = CanvasTool.PngEncoder.InterlaceMethod.NONE;
 
   /**
    * ガンマ値 ( null の場合 gAMA チャンクは付与されない)
@@ -183,7 +183,7 @@ function(width, height, opt_param) {
 
   /**
    * Standard RGB colour space ( null の場合 sRGB チャンクは付与されない)
-   * @type {?Canvas2PNG.Library.RenderingIntent}
+   * @type {?CanvasTool.PngEncoder.RenderingIntent}
    */
   this.srgb = null;
 
@@ -197,7 +197,7 @@ function(width, height, opt_param) {
    * ICC プロファイル ( null の場合 iCCP チャンクは付与されない)
    * @type {?{
    *   name: string,
-   *   compressionMethod: Canvas2PNG.Library.CompressionMethod,
+   *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod,
    *   profile: Array
    * }}
    */
@@ -214,7 +214,7 @@ function(width, height, opt_param) {
    * @type {?{
    *   x: number,
    *   y: number,
-   *   unit: Canvas2PNG.Library.UnitSpecifier
+   *   unit: CanvasTool.PngEncoder.UnitSpecifier
    * }}
    */
   this.phys = null;
@@ -239,7 +239,7 @@ function(width, height, opt_param) {
    * @type {?{
    *   keyword: string,
    *   text: string,
-   *   compressionMethod: Canvas2PNG.Library.CompressionMethod
+   *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod
    * }}
    */
   this.ztxt = null;
@@ -313,7 +313,7 @@ function(width, height, opt_param) {
  * チャンクタイプ
  * @enum {Array.<number>}
  */
-Canvas2PNG.Library.ChunkType = {
+CanvasTool.PngEncoder.ChunkType = {
   // 必須チャンク
   IHDR: bytearray_('IHDR'),
   PLTE: bytearray_('PLTE'),
@@ -340,7 +340,7 @@ Canvas2PNG.Library.ChunkType = {
  * 圧縮フラグ
  * @enum {number}
  */
-Canvas2PNG.Library.CompressionFlag = {
+CanvasTool.PngEncoder.CompressionFlag = {
   UNCOMPRESSED: 0,
   COMPRESSED: 1
 };
@@ -350,7 +350,7 @@ Canvas2PNG.Library.CompressionFlag = {
  * 現在は Deflate 圧縮のみ定義されている
  * @enum {number}
  */
-Canvas2PNG.Library.CompressionMethod = {
+CanvasTool.PngEncoder.CompressionMethod = {
   DEFLATE: 0
 };
 
@@ -361,7 +361,7 @@ Canvas2PNG.Library.CompressionMethod = {
  * 3 ビット目(0x04)が立っていればαチャンネル付き
  * @enum {number}
  */
-Canvas2PNG.Library.ColourType = {
+CanvasTool.PngEncoder.ColourType = {
   GRAYSCALE: 0,
   TRUECOLOR: 2,
   INDEXED_COLOR: 3,
@@ -374,7 +374,7 @@ Canvas2PNG.Library.ColourType = {
  * 現在は 0 の基本 5 種類のフィルタのみ定義
  * @enum {number}
  */
-Canvas2PNG.Library.FilterMethod = {
+CanvasTool.PngEncoder.FilterMethod = {
   BASIC: 0
 };
 
@@ -382,7 +382,7 @@ Canvas2PNG.Library.FilterMethod = {
  * 基本となる 5 種類のフィルタ
  * @enum {number}
  */
-Canvas2PNG.Library.BasicFilterType = {
+CanvasTool.PngEncoder.BasicFilterType = {
   NONE: 0,
   SUB: 1,
   UP: 2,
@@ -394,7 +394,7 @@ Canvas2PNG.Library.BasicFilterType = {
  * インタレース方法
  * @enum {number}
  */
-Canvas2PNG.Library.InterlaceMethod = {
+CanvasTool.PngEncoder.InterlaceMethod = {
   NONE: 0,
   ADAM7: 1
 };
@@ -403,7 +403,7 @@ Canvas2PNG.Library.InterlaceMethod = {
  * Rendering intent for Standard RGB colour space
  * @enum {number}
  */
-Canvas2PNG.Library.RenderingIntent = {
+CanvasTool.PngEncoder.RenderingIntent = {
   PERCEPTUAL: 0,
   RELATIVE: 1,
   SATURATION: 2,
@@ -414,7 +414,7 @@ Canvas2PNG.Library.RenderingIntent = {
  * Unit Specifier for Physical pixel dimensions
  * @enum {number}
  */
-Canvas2PNG.Library.UnitSpecifier = {
+CanvasTool.PngEncoder.UnitSpecifier = {
   UNKNOWN: 0,
   METRE: 1
 };
@@ -423,7 +423,7 @@ Canvas2PNG.Library.UnitSpecifier = {
  * PNG フォーマットのシグネチャ
  * @const
  */
-Canvas2PNG.Library.Signature = [137, 80, 78, 71, 13, 10, 26, 10];
+CanvasTool.PngEncoder.Signature = [137, 80, 78, 71, 13, 10, 26, 10];
 
 /**
  * 輝度変換に使用する赤の重み
@@ -431,7 +431,7 @@ Canvas2PNG.Library.Signature = [137, 80, 78, 71, 13, 10, 26, 10];
  * @const
  * @private
  */
-Canvas2PNG.Library.RedWeight_ = 0.29891;
+CanvasTool.PngEncoder.RedWeight_ = 0.29891;
 
 /**
  * 輝度変換に使用する緑の重み
@@ -439,7 +439,7 @@ Canvas2PNG.Library.RedWeight_ = 0.29891;
  * @const
  * @private
  */
-Canvas2PNG.Library.GreenWeight_ = 0.58661;
+CanvasTool.PngEncoder.GreenWeight_ = 0.58661;
 
 /**
  * 輝度変換に使用する青の重み
@@ -447,7 +447,7 @@ Canvas2PNG.Library.GreenWeight_ = 0.58661;
  * @const
  * @private
  */
-Canvas2PNG.Library.BlueWeight_ = 0.11448;
+CanvasTool.PngEncoder.BlueWeight_ = 0.11448;
 
 /**
  * CRC32 で使用するテーブル
@@ -455,7 +455,7 @@ Canvas2PNG.Library.BlueWeight_ = 0.11448;
  * @const
  * @private
  */
-Canvas2PNG.Library.Crc32Table_ = [
+CanvasTool.PngEncoder.Crc32Table_ = [
   0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
   0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
   0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
@@ -507,7 +507,7 @@ Canvas2PNG.Library.Crc32Table_ = [
  * @const
  * @private
  */
-Canvas2PNG.Library.Adam7Table_ = [
+CanvasTool.PngEncoder.Adam7Table_ = [
   /* 1 */ {xStart: 0, yStart: 0, xStep: 8, yStep: 8},
   /* 2 */ {xStart: 4, yStart: 0, xStep: 8, yStep: 8},
   /* 3 */ {xStart: 0, yStart: 4, xStep: 4, yStep: 8},
@@ -521,7 +521,7 @@ Canvas2PNG.Library.Adam7Table_ = [
  * PNGへ変換を行う
  * @return {string} PNGバイナリ.
  */
-Canvas2PNG.Library.prototype.convert = function(opt_canvasArray) {
+CanvasTool.PngEncoder.prototype.convert = function(opt_canvasArray) {
   return String.fromCharCode.apply(this, this.makePng_());
 };
 
@@ -529,7 +529,7 @@ Canvas2PNG.Library.prototype.convert = function(opt_canvasArray) {
  * パレットの取得
  * @return {Array.<number>} パレットの配列.
  */
-Canvas2PNG.Library.prototype.getPalette = function() {
+CanvasTool.PngEncoder.prototype.getPalette = function() {
   var palette, imageInfo;
 
   if (this.palette_ instanceof Array) {
@@ -550,19 +550,19 @@ Canvas2PNG.Library.prototype.getPalette = function() {
  * パラメータのバリデーション
  * @private
  */
-Canvas2PNG.Library.prototype.validate_ = function() {
+CanvasTool.PngEncoder.prototype.validate_ = function() {
   var allowDepth, i, l, isArrow = false;
 
   switch (this.colourType) {
-    case Canvas2PNG.Library.ColourType.GRAYSCALE:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
       allowDepth = [1, 2, 4, 8, 16];
       break;
-    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       allowDepth = [1, 2, 4, 8];
       break;
-    case Canvas2PNG.Library.ColourType.TRUECOLOR:
-    case Canvas2PNG.Library.ColourType.GRAYSCALE_WITH_ALPHA:
-    case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
       allowDepth = [8, 16];
       break;
     default:
@@ -586,13 +586,13 @@ Canvas2PNG.Library.prototype.validate_ = function() {
  * @return {Array} PNG バイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makePng_ = function() {
+CanvasTool.PngEncoder.prototype.makePng_ = function() {
   var png = [], imageInfo;
 
   imageInfo = this.makeImageArray(this.data);
 
   // signature
-  push_(png, Canvas2PNG.Library.Signature);
+  push_(png, CanvasTool.PngEncoder.Signature);
 
   // IHDR
   push_(png, this.makeIHDR_());
@@ -624,7 +624,7 @@ Canvas2PNG.Library.prototype.makePng_ = function() {
 
   // PLTE
   switch (this.colourType) {
-    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       push_(png, this.makePLTE_(imageInfo.PLTE));
       this.palette_ = imageInfo.PLTE;
 
@@ -643,10 +643,10 @@ Canvas2PNG.Library.prototype.makePng_ = function() {
         push_(png, this.maketRNS_(imageInfo.tRNS));
       }
       break;
-    case Canvas2PNG.Library.ColourType.GRAYSCALE:
-    case Canvas2PNG.Library.ColourType.TRUECOLOR:
-    case Canvas2PNG.Library.ColourType.GRAYSCALE_WITH_ALPHA:
-    case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
       break;
     default:
       throw new Error('unknown colour type');
@@ -696,7 +696,7 @@ Canvas2PNG.Library.prototype.makePng_ = function() {
  * @return {Array} IHDR チャンクバイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makeIHDR_ = function() {
+CanvasTool.PngEncoder.prototype.makeIHDR_ = function() {
   var data = [];
 
   push_(data, this.networkByteOrder_(this.width, 4));
@@ -707,7 +707,7 @@ Canvas2PNG.Library.prototype.makeIHDR_ = function() {
   push_(data, this.networkByteOrder_(this.filterMethod, 1));
   push_(data, this.networkByteOrder_(this.interlaceMethod, 1));
 
-  return this.makeChunk_(Canvas2PNG.Library.ChunkType.IHDR, data);
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.IHDR, data);
 };
 
 /**
@@ -716,7 +716,7 @@ Canvas2PNG.Library.prototype.makeIHDR_ = function() {
  *     tRNS プロパティに透明度パレットを含むオブジェクト.
  * @private
  */
-Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
+CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
   var pixelArray = [], img = canvasArray,
       saveAlpha = this.trns,
       depth = this.bitDepth,
@@ -767,8 +767,8 @@ Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
    */
   switch (this.colourType) {
     // Grayscale
-    case Canvas2PNG.Library.ColourType.GRAYSCALE_WITH_ALPHA:
-    case Canvas2PNG.Library.ColourType.GRAYSCALE:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
       max = (8 / this.bitDepth);
 
       for (index = 0, length = canvasArray.length; index < length; index += 4) {
@@ -790,8 +790,8 @@ Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
       }
       break;
     // Truecolor
-    case Canvas2PNG.Library.ColourType.TRUECOLOR:
-    case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
       for (index = 0, length = canvasArray.length; index < length; index += 4) {
         tmp = this.slice_(canvasArray, index, withAlpha ? 4 : 3);
 
@@ -799,7 +799,7 @@ Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
       }
       break;
     // Indexed-Color
-    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       // XXX: 出現回数でsortした方が良いか？
 
       // パレットの作成
@@ -908,7 +908,7 @@ Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
  * @return {Array} cHRM チャンク byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makecHRM_ = function(chrm) {
+CanvasTool.PngEncoder.prototype.makecHRM_ = function(chrm) {
   var data = [];
 
   push_(data, this.networkByteOrder_(chrm.whitePointX * 10000 | 0, 4));
@@ -920,7 +920,7 @@ Canvas2PNG.Library.prototype.makecHRM_ = function(chrm) {
   push_(data, this.networkByteOrder_(chrm.blueX * 10000 | 0, 4));
   push_(data, this.networkByteOrder_(chrm.blueY * 10000 | 0, 4));
 
-  return this.makeChunk_(Canvas2PNG.Library.ChunkType.CHRM, data);
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.CHRM, data);
 };
 
 /**
@@ -929,9 +929,9 @@ Canvas2PNG.Library.prototype.makecHRM_ = function(chrm) {
  * @return {Array} gAMA チャンク byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makegAMA_ = function(gamma) {
+CanvasTool.PngEncoder.prototype.makegAMA_ = function(gamma) {
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.GAMA,
+    CanvasTool.PngEncoder.ChunkType.GAMA,
     this.networkByteOrder_((100000 / gamma) + 0.5 | 0, 4)
   );
 };
@@ -941,39 +941,39 @@ Canvas2PNG.Library.prototype.makegAMA_ = function(gamma) {
  * @return {Array} sBIT チャンク byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makesBIT_ = function(sbit) {
+CanvasTool.PngEncoder.prototype.makesBIT_ = function(sbit) {
   var data = [];
 
   switch (this.colourType) {
-    case Canvas2PNG.Library.ColourType.GRAYSCALE:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
       // grayscale bits
       if (sbit.length !== 1) {
         throw new Error('wrong sBIT length');
       }
       push_(data, sbit.slice(0, 1));
       break;
-    case Canvas2PNG.Library.ColourType.TRUECOLOR:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
       // red, green, blue bits
       if (sbit.length !== 3) {
         throw new Error('wrong sBIT length');
       }
       push_(data, sbit.slice(0, 3));
       break;
-    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       // red, green, blue bits
       if (sbit.length !== 3) {
         throw new Error('wrong sBIT length');
       }
       push_(data, sbit.slice(0, 3));
       break;
-    case Canvas2PNG.Library.ColourType.GRAYSCALE_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
       // grayscale, alpha bits
       if (sbit.length !== 2) {
         throw new Error('wrong sBIT length');
       }
       push_(data, sbit.slice(0, 2));
       break;
-    case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
       // red, green, blue, alpha bits
       if (sbit.length !== 4) {
         throw new Error('wrong sBIT length');
@@ -985,20 +985,20 @@ Canvas2PNG.Library.prototype.makesBIT_ = function(sbit) {
   }
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.SBIT,
+    CanvasTool.PngEncoder.ChunkType.SBIT,
     data
   );
 };
 
 /**
  * Standard RGB colour space.
- * @param {Canvas2PNG.Library.RenderingIntent} ri レンダリング時の解釈仕様.
+ * @param {CanvasTool.PngEncoder.RenderingIntent} ri レンダリング時の解釈仕様.
  * @return {Array} sRGB チャンク byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makesRGB_ = function(ri) {
+CanvasTool.PngEncoder.prototype.makesRGB_ = function(ri) {
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.SRGB,
+    CanvasTool.PngEncoder.ChunkType.SRGB,
     [ri]
   );
 };
@@ -1008,13 +1008,13 @@ Canvas2PNG.Library.prototype.makesRGB_ = function(ri) {
  * XXX: 未テスト.
  * @param {?{
  *   name: string,
- *   compressionMethod: Canvas2PNG.Library.CompressionMethod,
+ *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod,
  *   profile: Array
  * }} iccp ICCP プロファイル.
  * @return {Array} iCCP チャンク byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makeiCCP_ = function(iccp) {
+CanvasTool.PngEncoder.prototype.makeiCCP_ = function(iccp) {
   var data = [],
       namearray, c, i, l;
 
@@ -1039,7 +1039,7 @@ Canvas2PNG.Library.prototype.makeiCCP_ = function(iccp) {
 
   // profile
   switch (iccp.compressionMethod) {
-    case Canvas2PNG.Library.CompressionMethod.DEFLATE:
+    case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
       push_(data, Zlib.Deflate.compress(iccp.profile));
       break;
     default:
@@ -1048,7 +1048,7 @@ Canvas2PNG.Library.prototype.makeiCCP_ = function(iccp) {
   }
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.ICCP,
+    CanvasTool.PngEncoder.ChunkType.ICCP,
     data
   );
 };
@@ -1063,22 +1063,23 @@ Canvas2PNG.Library.prototype.makeiCCP_ = function(iccp) {
  * @return {Array.<number>} bKGD チャンク byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makebKGD_ = function(backgroundColour, palette) {
+CanvasTool.PngEncoder.prototype.makebKGD_ =
+function(backgroundColour, palette) {
   var data = [],
       paletteIndex = null,
       i, l;
 
   switch (this.colourType) {
-    case Canvas2PNG.Library.ColourType.GRAYSCALE:
-    case Canvas2PNG.Library.ColourType.GRAYSCALE_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
       // grayscale
       if (backgroundColour.length !== 1) {
         throw new Error('wrong background-color length');
       }
       push_(data, this.networkByteOrder_(backgroundColour[0], 2));
       break;
-    case Canvas2PNG.Library.ColourType.TRUECOLOR:
-    case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
       // red, green, blue
       if (backgroundColour.length !== 3) {
         throw new Error('wrong background-color length');
@@ -1087,7 +1088,7 @@ Canvas2PNG.Library.prototype.makebKGD_ = function(backgroundColour, palette) {
       push_(data, this.networkByteOrder_(backgroundColour[1], 2));
       push_(data, this.networkByteOrder_(backgroundColour[2], 2));
       break;
-    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       // red, green, blue
       if (backgroundColour.length !== 3) {
         throw new Error('wrong background-color length');
@@ -1113,7 +1114,7 @@ Canvas2PNG.Library.prototype.makebKGD_ = function(backgroundColour, palette) {
   }
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.BKGD,
+    CanvasTool.PngEncoder.ChunkType.BKGD,
     data
   );
 };
@@ -1124,7 +1125,7 @@ Canvas2PNG.Library.prototype.makebKGD_ = function(backgroundColour, palette) {
  * @return {Array.<number>} hIST チャンク byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makehIST_ = function(hist) {
+CanvasTool.PngEncoder.prototype.makehIST_ = function(hist) {
   var data = [],
       max = max_(hist),
       h = 0,
@@ -1141,7 +1142,7 @@ Canvas2PNG.Library.prototype.makehIST_ = function(hist) {
   }
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.HIST,
+    CanvasTool.PngEncoder.ChunkType.HIST,
     data
   );
 };
@@ -1156,7 +1157,7 @@ Canvas2PNG.Library.prototype.makehIST_ = function(hist) {
  * @return {Array.<number>} sPLT チャンク byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makesPLT_ = function(splt, hist) {
+CanvasTool.PngEncoder.prototype.makesPLT_ = function(splt, hist) {
   var data = [],
       sortedHist,
       max = 0,
@@ -1231,7 +1232,7 @@ Canvas2PNG.Library.prototype.makesPLT_ = function(splt, hist) {
   }
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.SPLT,
+    CanvasTool.PngEncoder.ChunkType.SPLT,
     data
   );
 };
@@ -1242,13 +1243,13 @@ Canvas2PNG.Library.prototype.makesPLT_ = function(splt, hist) {
  * @return {Array} PLTE チャンクバイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makePLTE_ = function(palette) {
+CanvasTool.PngEncoder.prototype.makePLTE_ = function(palette) {
   if (palette.length > 256) {
     throw new Error('over 256 colors');
   }
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.PLTE,
+    CanvasTool.PngEncoder.ChunkType.PLTE,
     palette
   );
 };
@@ -1258,12 +1259,12 @@ Canvas2PNG.Library.prototype.makePLTE_ = function(palette) {
  * @param {?{
  *   x: number,
  *   y: number,
- *   unit: Canvas2PNG.Library.UnitSpecifier
+ *   unit: CanvasTool.PngEncoder.UnitSpecifier
  * }} phys phisical pixel dimensions settings.
  * @return {Array} pHYs チャンクバイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makepHYs_ = function(phys) {
+CanvasTool.PngEncoder.prototype.makepHYs_ = function(phys) {
   var data = [];
 
   push_(data, this.networkByteOrder_(phys.x, 4));
@@ -1271,7 +1272,7 @@ Canvas2PNG.Library.prototype.makepHYs_ = function(phys) {
   data.push(phys.unit);
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.PHYS,
+    CanvasTool.PngEncoder.ChunkType.PHYS,
     data
   );
 };
@@ -1285,7 +1286,7 @@ Canvas2PNG.Library.prototype.makepHYs_ = function(phys) {
  * @return {Array} tEXt チャンクバイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.maketEXt_ = function(text) {
+CanvasTool.PngEncoder.prototype.maketEXt_ = function(text) {
   var data = [];
 
   // keyword
@@ -1298,7 +1299,7 @@ Canvas2PNG.Library.prototype.maketEXt_ = function(text) {
   push_(data, bytearray_(text.text));
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.TEXT,
+    CanvasTool.PngEncoder.ChunkType.TEXT,
     data
   );
 };
@@ -1309,12 +1310,12 @@ Canvas2PNG.Library.prototype.maketEXt_ = function(text) {
  * @param {?{
  *   keyword: string,
  *   text: string,
- *   compressionMethod: Canvas2PNG.Library.CompressionMethod
+ *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod
  * }} text text data.
  * @return {Array} zTXt チャンクバイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makezTXt_ = function(text) {
+CanvasTool.PngEncoder.prototype.makezTXt_ = function(text) {
   var data = [];
 
   // keyword
@@ -1328,7 +1329,7 @@ Canvas2PNG.Library.prototype.makezTXt_ = function(text) {
 
   // data
   switch (text.compressionMethod) {
-    case Canvas2PNG.Library.CompressionMethod.DEFLATE:
+    case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
       push_(data, Zlib.Deflate.compress(bytearray_(text.text)));
       break;
     default:
@@ -1337,7 +1338,7 @@ Canvas2PNG.Library.prototype.makezTXt_ = function(text) {
   }
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.ZTXT,
+    CanvasTool.PngEncoder.ChunkType.ZTXT,
     data
   );
 };
@@ -1349,12 +1350,12 @@ Canvas2PNG.Library.prototype.makezTXt_ = function(text) {
  *   text: string,
  *   lang: string,
  *   translatedKeyword: string,
- *   compressionMethod: ?Canvas2PNG.Library.CompressionMethod
+ *   compressionMethod: ?CanvasTool.PngEncoder.CompressionMethod
  * }} text text data.
  * @return {Array} iTXt チャンクバイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makeiTXt_ = function(text) {
+CanvasTool.PngEncoder.prototype.makeiTXt_ = function(text) {
   var data = [], compressedText;
 
   // keyword
@@ -1365,14 +1366,14 @@ Canvas2PNG.Library.prototype.makeiTXt_ = function(text) {
 
   if (typeof(text.compressionMethod) === 'number') {
     // compression flag
-    data.push(Canvas2PNG.Library.CompressionFlag.COMPRESSED);
+    data.push(CanvasTool.PngEncoder.CompressionFlag.COMPRESSED);
 
     // compression method
     data.push(text.compressionMethod);
 
     // text compression
     switch (text.compressionMethod) {
-      case Canvas2PNG.Library.CompressionMethod.DEFLATE:
+      case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
         compressedText = Zlib.Deflate.compress(bytearray_(utf8_(text.text)));
         break;
       default:
@@ -1380,7 +1381,7 @@ Canvas2PNG.Library.prototype.makeiTXt_ = function(text) {
     }
   } else {
     // compression flag
-    data.push(Canvas2PNG.Library.CompressionFlag.UNCOMPRESSED);
+    data.push(CanvasTool.PngEncoder.CompressionFlag.UNCOMPRESSED);
 
     // compression method
     data.push(0);
@@ -1407,7 +1408,7 @@ Canvas2PNG.Library.prototype.makeiTXt_ = function(text) {
   push_(data, compressedText);
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.ITXT,
+    CanvasTool.PngEncoder.ChunkType.ITXT,
     data
   );
 };
@@ -1419,7 +1420,7 @@ Canvas2PNG.Library.prototype.makeiTXt_ = function(text) {
  * @return {Array} tIME チャンクバイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.maketIME_ = function(time) {
+CanvasTool.PngEncoder.prototype.maketIME_ = function(time) {
   var data = [];
 
   push_(data, this.networkByteOrder_(time.getUTCFullYear(), 2));
@@ -1430,7 +1431,7 @@ Canvas2PNG.Library.prototype.maketIME_ = function(time) {
   data.push(time.getUTCSeconds());
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.TIME,
+    CanvasTool.PngEncoder.ChunkType.TIME,
     data
   );
 };
@@ -1441,7 +1442,7 @@ Canvas2PNG.Library.prototype.maketIME_ = function(time) {
  * @return {Array} IDAT チャンクバイナリ Array.
  * @private
  */
-Canvas2PNG.Library.prototype.makeIDAT_ = function(pixelArray) {
+CanvasTool.PngEncoder.prototype.makeIDAT_ = function(pixelArray) {
   var idat = [],
       filterMethod = this.filterMethod,
       filterType = this.filterType,
@@ -1483,7 +1484,7 @@ Canvas2PNG.Library.prototype.makeIDAT_ = function(pixelArray) {
       line = this.pixelArrayToByteArray_(line);
 
       switch (filterMethod) {
-        case Canvas2PNG.Library.FilterMethod.BASIC:
+        case CanvasTool.PngEncoder.FilterMethod.BASIC:
           idat.push(filterType);
           push_(idat, this.filter_(line, bpp));
           break;
@@ -1497,14 +1498,14 @@ Canvas2PNG.Library.prototype.makeIDAT_ = function(pixelArray) {
 
   // データの圧縮
   switch (this.compressionMethod) {
-    case Canvas2PNG.Library.CompressionMethod.DEFLATE:
+    case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
       idat = Zlib.Deflate.compress(idat);
       break;
     default:
       throw new Error('unknown compression method');
   }
 
-  return this.makeChunk_(Canvas2PNG.Library.ChunkType.IDAT, idat);
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.IDAT, idat);
 };
 
 /**
@@ -1512,8 +1513,8 @@ Canvas2PNG.Library.prototype.makeIDAT_ = function(pixelArray) {
  * @return {Array} IEND チャンクバイナリ Array.
  * @private
  */
-Canvas2PNG.Library.prototype.makeIEND_ = function() {
-  return this.makeChunk_(Canvas2PNG.Library.ChunkType.IEND, []);
+CanvasTool.PngEncoder.prototype.makeIEND_ = function() {
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.IEND, []);
 };
 
 /**
@@ -1525,19 +1526,19 @@ Canvas2PNG.Library.prototype.makeIEND_ = function() {
  * @return {Array.<number>} tRNS チャンクバイナリ byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.maketRNS_ = function(alpha) {
+CanvasTool.PngEncoder.prototype.maketRNS_ = function(alpha) {
   var data = [], i;
 
   switch (this.colourType) {
-    case Canvas2PNG.Library.ColourType.GRAYSCALE:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
       push_(data, this.networkByteOrder_(alpha, 2));
       break;
-    case Canvas2PNG.Library.ColourType.TRUECOLOR:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
       push_(data, this.networkByteOrder_(alpha[0], 2));
       push_(data, this.networkByteOrder_(alpha[1], 2));
       push_(data, this.networkByteOrder_(alpha[2], 2));
       break;
-    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       data = alpha;
       break;
     default:
@@ -1545,7 +1546,7 @@ Canvas2PNG.Library.prototype.maketRNS_ = function(alpha) {
   }
 
   return this.makeChunk_(
-    Canvas2PNG.Library.ChunkType.TRNS,
+    CanvasTool.PngEncoder.ChunkType.TRNS,
     data
   );
 };
@@ -1556,15 +1557,15 @@ Canvas2PNG.Library.prototype.maketRNS_ = function(alpha) {
  * @return {number} bpp.
  * @private
  */
-Canvas2PNG.Library.prototype.getBytesPerCompletePixel_ = function() {
+CanvasTool.PngEncoder.prototype.getBytesPerCompletePixel_ = function() {
   var bpp, withAlpha = (this.colourType & 0x04) > 0;
 
   switch (this.colourType) {
-    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       bpp = 1;
       break;
-    case Canvas2PNG.Library.ColourType.GRAYSCALE:
-    case Canvas2PNG.Library.ColourType.GRAYSCALE_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
       bpp = 1;
       if (withAlpha) {
         bpp += 1;
@@ -1573,8 +1574,8 @@ Canvas2PNG.Library.prototype.getBytesPerCompletePixel_ = function() {
         bpp *= 2;
       }
       break;
-    case Canvas2PNG.Library.ColourType.TRUECOLOR:
-    case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
       bpp = 3;
       if (withAlpha) {
         bpp += 1;
@@ -1592,17 +1593,17 @@ Canvas2PNG.Library.prototype.getBytesPerCompletePixel_ = function() {
 
 /**
  * インターレースメソッドの取得
- * @return {function(Array):Array.<Canvas2PNG.Library.Pass_>} 描画パスのリスト.
+ * @return {function(Array):Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
  * @private
  */
-Canvas2PNG.Library.prototype.getInterlace_ = function() {
+CanvasTool.PngEncoder.prototype.getInterlace_ = function() {
   var interlace;
 
   switch (this.interlaceMethod) {
-    case Canvas2PNG.Library.InterlaceMethod.NONE:
+    case CanvasTool.PngEncoder.InterlaceMethod.NONE:
       interlace = this.interlaceNone_;
       break;
-    case Canvas2PNG.Library.InterlaceMethod.ADAM7:
+    case CanvasTool.PngEncoder.InterlaceMethod.ADAM7:
       interlace = this.interlaceAdam7_;
       break;
     default:
@@ -1619,7 +1620,7 @@ Canvas2PNG.Library.prototype.getInterlace_ = function() {
  * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
  * @constructor
  */
-Canvas2PNG.Library.Pass_ = function(width, height, pixelArray) {
+CanvasTool.PngEncoder.Pass_ = function(width, height, pixelArray) {
   this.width = width;
   this.height = height;
   this.pixelArray = pixelArray;
@@ -1628,37 +1629,37 @@ Canvas2PNG.Library.Pass_ = function(width, height, pixelArray) {
 /**
  * Interlace None
  * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
- * @return {Array.<Canvas2PNG.Library.Pass_>} 描画パスのリスト.
+ * @return {Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
  * @private
  */
-Canvas2PNG.Library.prototype.interlaceNone_ = function(pixelArray) {
-  return [new Canvas2PNG.Library.Pass_(this.width, this.height, pixelArray)];
+CanvasTool.PngEncoder.prototype.interlaceNone_ = function(pixelArray) {
+  return [new CanvasTool.PngEncoder.Pass_(this.width, this.height, pixelArray)];
 };
 
 /**
  * Interlace Adam7
  * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
- * @return {Array.<Canvas2PNG.Library.Pass_>} 描画パスのリスト.
+ * @return {Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
  * @private
  */
-Canvas2PNG.Library.prototype.interlaceAdam7_ = function(pixelArray) {
+CanvasTool.PngEncoder.prototype.interlaceAdam7_ = function(pixelArray) {
   var height = this.height,
       width = pixelArray.length / height,
       x, y, blockx, blocky, passx, passy, linex, liney,
       pixel,
       index, length,
-      table = Canvas2PNG.Library.Adam7Table_, config,
+      table = CanvasTool.PngEncoder.Adam7Table_, config,
       passlist, pass;
 
   // 7 回分のパスを作成
   passlist = [
-    new Canvas2PNG.Library.Pass_(0, 0, []),
-    new Canvas2PNG.Library.Pass_(0, 0, []),
-    new Canvas2PNG.Library.Pass_(0, 0, []),
-    new Canvas2PNG.Library.Pass_(0, 0, []),
-    new Canvas2PNG.Library.Pass_(0, 0, []),
-    new Canvas2PNG.Library.Pass_(0, 0, []),
-    new Canvas2PNG.Library.Pass_(0, 0, [])
+    new CanvasTool.PngEncoder.Pass_(0, 0, []),
+    new CanvasTool.PngEncoder.Pass_(0, 0, []),
+    new CanvasTool.PngEncoder.Pass_(0, 0, []),
+    new CanvasTool.PngEncoder.Pass_(0, 0, []),
+    new CanvasTool.PngEncoder.Pass_(0, 0, []),
+    new CanvasTool.PngEncoder.Pass_(0, 0, []),
+    new CanvasTool.PngEncoder.Pass_(0, 0, [])
   ];
 
   // 各パスの処理
@@ -1700,7 +1701,7 @@ Canvas2PNG.Library.prototype.interlaceAdam7_ = function(pixelArray) {
  * @param {Array|CanvasPixelArray} pixelArray canvas pixel array like.
  * @return {Array} pixel byte array.
  */
-Canvas2PNG.Library.prototype.pixelArrayToByteArray_ = function(pixelArray) {
+CanvasTool.PngEncoder.prototype.pixelArrayToByteArray_ = function(pixelArray) {
   var byteArray = [], pixel, color,
       index, length, pIndex, pLength,
       depth = this.bitDepth, colourType = this.colourType, sep, current;
@@ -1738,25 +1739,25 @@ Canvas2PNG.Library.prototype.pixelArrayToByteArray_ = function(pixelArray) {
  * @return {function(Array.<number>, number):Array} フィルタメソッド.
  * @private
  */
-Canvas2PNG.Library.prototype.getFilter_ = function() {
+CanvasTool.PngEncoder.prototype.getFilter_ = function() {
   var filter;
 
   switch (this.filterMethod) {
-    case Canvas2PNG.Library.FilterMethod.BASIC:
+    case CanvasTool.PngEncoder.FilterMethod.BASIC:
       switch (this.filterType) {
-        case Canvas2PNG.Library.BasicFilterType.NONE:
+        case CanvasTool.PngEncoder.BasicFilterType.NONE:
           filter = this.filterNone_;
           break;
-        case Canvas2PNG.Library.BasicFilterType.SUB:
+        case CanvasTool.PngEncoder.BasicFilterType.SUB:
           filter = this.filterSub_;
           break;
-        case Canvas2PNG.Library.BasicFilterType.UP:
+        case CanvasTool.PngEncoder.BasicFilterType.UP:
           filter = this.filterUp_;
           break;
-        case Canvas2PNG.Library.BasicFilterType.AVERAGE:
+        case CanvasTool.PngEncoder.BasicFilterType.AVERAGE:
           filter = this.filterAverage_;
           break;
-        case Canvas2PNG.Library.BasicFilterType.PAETH:
+        case CanvasTool.PngEncoder.BasicFilterType.PAETH:
           filter = this.filterPaeth_;
           break;
         default:
@@ -1777,7 +1778,7 @@ Canvas2PNG.Library.prototype.getFilter_ = function() {
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.filterNone_ = function(lineByteArray, sub) {
+CanvasTool.PngEncoder.prototype.filterNone_ = function(lineByteArray, sub) {
   var filteredImageLine = lineByteArray;
 
   filteredImageLine = lineByteArray;
@@ -1792,7 +1793,7 @@ Canvas2PNG.Library.prototype.filterNone_ = function(lineByteArray, sub) {
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.filterSub_ = function(lineByteArray, sub) {
+CanvasTool.PngEncoder.prototype.filterSub_ = function(lineByteArray, sub) {
   var filteredImageLine = [], left = 0, index, length;
 
   for (index = 0, length = lineByteArray.length; index < length; index++) {
@@ -1810,7 +1811,7 @@ Canvas2PNG.Library.prototype.filterSub_ = function(lineByteArray, sub) {
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.filterUp_ = function(lineByteArray, sub) {
+CanvasTool.PngEncoder.prototype.filterUp_ = function(lineByteArray, sub) {
   var filteredImageLine = [], up, prevLine = this.prevLine_, index, length;
 
   for (index = 0, length = lineByteArray.length; index < length; index++) {
@@ -1828,7 +1829,7 @@ Canvas2PNG.Library.prototype.filterUp_ = function(lineByteArray, sub) {
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.filterAverage_ = function(lineByteArray, sub) {
+CanvasTool.PngEncoder.prototype.filterAverage_ = function(lineByteArray, sub) {
   var filteredImageLine = [],
       left, up, average,
       prevLine = this.prevLine_, index, length;
@@ -1851,7 +1852,7 @@ Canvas2PNG.Library.prototype.filterAverage_ = function(lineByteArray, sub) {
  * @return {Array} filtered line byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.filterPaeth_ = function(lineByteArray, sub) {
+CanvasTool.PngEncoder.prototype.filterPaeth_ = function(lineByteArray, sub) {
   var filteredImageLine = [],
       left, up, leftup, paeth,
       prevLine = this.prevLine_, index, length;
@@ -1876,7 +1877,7 @@ Canvas2PNG.Library.prototype.filterPaeth_ = function(lineByteArray, sub) {
  * @return {number} nearest byte.
  * @private
  */
-Canvas2PNG.Library.prototype.paethPredictor_ = function(a, b, c) {
+CanvasTool.PngEncoder.prototype.paethPredictor_ = function(a, b, c) {
   var p, pa, pb, pc;
 
   p = a + b - c;
@@ -1896,7 +1897,7 @@ Canvas2PNG.Library.prototype.paethPredictor_ = function(a, b, c) {
  * @return {Array} 指定した範囲の新しい配列.
  * @private
  */
-Canvas2PNG.Library.prototype.slice_ = function(arraylike, start, length) {
+CanvasTool.PngEncoder.prototype.slice_ = function(arraylike, start, length) {
   var result, arraylength = arraylike.length;
 
   if (arraylike instanceof Array) {
@@ -1917,12 +1918,12 @@ Canvas2PNG.Library.prototype.slice_ = function(arraylike, start, length) {
 
 /**
  * チャンクの作成
- * @param {Canvas2PNG.Library.ChunkType} type Chunk type.
+ * @param {CanvasTool.PngEncoder.ChunkType} type Chunk type.
  * @param {Array} data Chunk data byte array.
  * @return {Array} Chunk byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.makeChunk_ = function(type, data) {
+CanvasTool.PngEncoder.prototype.makeChunk_ = function(type, data) {
   var chunk = [], length = data.length;
 
   // Length*
@@ -1946,7 +1947,7 @@ Canvas2PNG.Library.prototype.makeChunk_ = function(type, data) {
  * @return {Array} network byte order byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.networkByteOrder_ = function(number, size) {
+CanvasTool.PngEncoder.prototype.networkByteOrder_ = function(number, size) {
   var tmp = [], octet, nullchar;
 
   do {
@@ -1972,12 +1973,12 @@ Canvas2PNG.Library.prototype.networkByteOrder_ = function(number, size) {
  * @return {number} CRC32.
  * @private
  */
-Canvas2PNG.Library.prototype.updateCRC32_ = function(data, crc) {
+CanvasTool.PngEncoder.prototype.updateCRC32_ = function(data, crc) {
   var octet = 0;
 
   for (var i = 0, l = data.length; i < l; i++) {
     octet = (crc ^ data[i]) & 0xff;
-    crc = (crc >>> 8) ^ Canvas2PNG.Library.Crc32Table_[octet];
+    crc = (crc >>> 8) ^ CanvasTool.PngEncoder.Crc32Table_[octet];
   }
 
   return crc;
@@ -1989,7 +1990,7 @@ Canvas2PNG.Library.prototype.updateCRC32_ = function(data, crc) {
  * @return {number} CRC32.
  * @private
  */
-Canvas2PNG.Library.prototype.getCRC32_ = function(data) {
+CanvasTool.PngEncoder.prototype.getCRC32_ = function(data) {
   return this.updateCRC32_(data, 0xffffffff) ^ 0xffffffff;
 };
 
@@ -2001,12 +2002,12 @@ Canvas2PNG.Library.prototype.getCRC32_ = function(data) {
  * @return {number} 輝度 (0-255).
  * @private
  */
-Canvas2PNG.Library.prototype.rgb2y_ = function(red, green, blue) {
+CanvasTool.PngEncoder.prototype.rgb2y_ = function(red, green, blue) {
   var y;
 
-  y = red * Canvas2PNG.Library.RedWeight_ +
-      green * Canvas2PNG.Library.GreenWeight_ +
-      blue * Canvas2PNG.Library.BlueWeight_ +
+  y = red * CanvasTool.PngEncoder.RedWeight_ +
+      green * CanvasTool.PngEncoder.GreenWeight_ +
+      blue * CanvasTool.PngEncoder.BlueWeight_ +
       0.0001; // 丸め
 
   return (y > 255 ? 255 : y) | 0;
@@ -2018,7 +2019,7 @@ Canvas2PNG.Library.prototype.rgb2y_ = function(red, green, blue) {
  * @return {string} 変換されたバイナリ文字列.
  * @private
  */
-Canvas2PNG.Library.prototype.rgb2str_ = function(color) {
+CanvasTool.PngEncoder.prototype.rgb2str_ = function(color) {
   return color.slice(0, 3).map(this.fromCharCode_).join('');
 };
 
@@ -2028,7 +2029,7 @@ Canvas2PNG.Library.prototype.rgb2str_ = function(color) {
  * @return {string} 変換されたバイナリ文字列.
  * @private
  */
-Canvas2PNG.Library.prototype.rgba2str_ = function(color) {
+CanvasTool.PngEncoder.prototype.rgba2str_ = function(color) {
   return color.map(this.fromCharCode_).join('');
 };
 
@@ -2040,7 +2041,7 @@ Canvas2PNG.Library.prototype.rgba2str_ = function(color) {
  * @return {string} 変換された文字列.
  * @private
  */
-Canvas2PNG.Library.prototype.fromCharCode_ = function(code) {
+CanvasTool.PngEncoder.prototype.fromCharCode_ = function(code) {
   return String.fromCharCode(code).charAt(0);
 };
 
@@ -2139,41 +2140,44 @@ function utf8_(str) {
 /**
  * @define {boolean} no export symbols.
  */
-Canvas2PNG.NO_EXPORT = true;
+CanvasTool.PngEncoder.NO_EXPORT = true;
 
-if (!Canvas2PNG.NO_EXPORT) {
-  goog.exportSymbol('Canvas2PNG', Canvas2PNG.Library);
+if (!CanvasTool.PngEncoder.NO_EXPORT) {
   goog.exportSymbol(
-    'Canvas2PNG.ChunkType',
-    Canvas2PNG.Library.ChunkType
+    'CanvasTool.PngEncoder',
+    CanvasTool.PngEncoder
   );
   goog.exportSymbol(
-    'Canvas2PNG.CompressionMethod',
-    Canvas2PNG.Library.CompressionMethod
+    'CanvasTool.PngEncoder.ChunkType',
+    CanvasTool.PngEncoder.ChunkType
   );
   goog.exportSymbol(
-    'Canvas2PNG.ColourType',
-    Canvas2PNG.Library.ColourType
+    'CanvasTool.PngEncoder.CompressionMethod',
+    CanvasTool.PngEncoder.CompressionMethod
   );
   goog.exportSymbol(
-    'Canvas2PNG.FilterMethod',
-    Canvas2PNG.Library.FilterMethod
+    'CanvasTool.PngEncoder.ColourType',
+    CanvasTool.PngEncoder.ColourType
   );
   goog.exportSymbol(
-    'Canvas2PNG.BasicFilterType',
-    Canvas2PNG.Library.BasicFilterType
+    'CanvasTool.PngEncoder.FilterMethod',
+    CanvasTool.PngEncoder.FilterMethod
   );
   goog.exportSymbol(
-    'Canvas2PNG.InterlaceMethod',
-    Canvas2PNG.Library.InterlaceMethod
+    'CanvasTool.PngEncoder.BasicFilterType',
+    CanvasTool.PngEncoder.BasicFilterType
   );
   goog.exportSymbol(
-    'Canvas2PNG.RenderingIntent',
-    Canvas2PNG.Library.RenderingIntent
+    'CanvasTool.PngEncoder.InterlaceMethod',
+    CanvasTool.PngEncoder.InterlaceMethod
   );
   goog.exportSymbol(
-    'Canvas2PNG.UnitSpecifier',
-    Canvas2PNG.Library.UnitSpecifier
+    'CanvasTool.PngEncoder.RenderingIntent',
+    CanvasTool.PngEncoder.RenderingIntent
+  );
+  goog.exportSymbol(
+    'CanvasTool.PngEncoder.UnitSpecifier',
+    CanvasTool.PngEncoder.UnitSpecifier
   );
 }
 

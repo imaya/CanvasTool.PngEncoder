@@ -56,24 +56,29 @@
 	<!-- デバッグ版のビルド -->
 	<target name="debug" depends="deps" description="デバッグ版のファイル debug.js を作成する" >
 		<!-- 出力ファイル名 -->
-		<property name="outfile" value="${bin}/canvas2png.debug.js" />
+		<property name="outfile" value="${bin}/canvastool.pngencoder.debug.js" />
 		<!-- ビルド(出力先は一時ファイル) -->
 		<exec dir="${src}" executable="python" failonerror="true">
 			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
 			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
-			<arg line="-f &quot;--compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
+			<!--arg line="-f &quot;-warning_level=VERBOSE&quot;" />
+			<!-
+			XXX: ADVANCED_OPTIMIZATIONS でビルドすると実行速度が著しく低下する事がある.
+			<arg line="-f &quot;-compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
+			-->
 			<arg line="-f &quot;--externs=externs.js&quot;" />
 			<arg line="-f &quot;--output_wrapper='(function() {%output%})();'&quot;" />
 			<arg line="-f &quot;--define='Zlib.Deflate.NO_EXPORT=true'&quot;" />
+			<arg line="-f &quot;--define='CanvasTool.PngEncoder.NO_EXPORT=false'&quot;" />
 			<arg line="--root=../${vendor}/google-closure-library/closure" />
 			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
 			<arg line="--root=." />
-			<arg line="--namespace=Canvas2PNG.Library" />
+			<arg line="--namespace=CanvasTool.PngEncoder" />
 			<arg line="-o compiled" />
 			<arg line="--output_file=../${outfile}.tmp" />
 		</exec>
 		<!-- ライセンスとビルドされたファイルをプロパティとして読み込む -->
-		<loadfile property="license" srcfile="${src}/canvas2png.license" />
+		<loadfile property="license" srcfile="${src}/canvastool.pngencoder.license" />
 		<loadfile property="output" srcfile="${outfile}.tmp" />
 		<!-- ライセンスとビルドされたファイルの結合 -->
 		<echo file="${outfile}" append="no" message="${license}" />
@@ -94,9 +99,9 @@
 			<arg line="--root=../${vendor}/google-closure-library/closure" />
 			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
 			<arg line="--root=." />
-			<arg line="--namespace=Canvas2PNG" />
+			<arg line="--namespace=CanvasTool.PngEncoder" />
 			<arg line="-o compiled" />
-			<arg line="--output_file=../${bin}/canvas2png.min.js" />
+			<arg line="--output_file=../${bin}/canvastool.pngencoder.min.js" />
 		</exec>
 	</target>
 
@@ -106,8 +111,8 @@
 	<!--  削除 -->
 	<target name="clean">
 		<delete file="${src}/deps.js" />
-		<delete file="${src}/canvas2png.debug.js" />
-		<delete file="${src}/canvas2png.min.js" />
+		<delete file="${src}/canvastool.pngencoder.debug.js" />
+		<delete file="${src}/canvastool.pngencoder.min.js" />
 	</target>
 
 	<!-- リビルド -->
