@@ -26,7 +26,7 @@
  */
 
 /**
- * @fileoverview JavaScript による PNG の実装.
+ * @fileoverview JavaScript による PNG Encoder の実装.
  * @see http://www.w3.org/TR/PNG/
  */
 
@@ -46,8 +46,7 @@ goog.scope(function() {
  * @constructor
  */
 Canvas2PNG.Library = function(canvas, opt_param) {
-  var ctx, width, heigth;
-  console.log(canvas);
+  var ctx, width, height;
 
   /**
    * @type {Array|CanvasPixelArray}
@@ -67,20 +66,20 @@ Canvas2PNG.Library = function(canvas, opt_param) {
     this.data = ctx.getImageData(0, 0, width, height).data;
   } else if (typeof(canvas.length) === 'number') {
     if (typeof(opt_param) !== 'object') {
-      throw Error('need opt_param object');
+      throw new Error('need opt_param object');
     }
     if (typeof(opt_param.width) !== 'number') {
-      throw Error('width property not found');
+      throw new Error('width property not found');
     }
     if (typeof(opt_param.height) !== 'number') {
-      throw Error('height property not found');
+      throw new Error('height property not found');
     }
 
     width = opt_param.width;
     height = opt_param.height;
     this.data = canvas;
   } else {
-    throw Error('invalid arguments');
+    throw new Error('invalid arguments');
   }
 
   this.setParameters(width, height, opt_param);
@@ -149,10 +148,107 @@ function(width, height, opt_param) {
   this.interlaceMethod = Canvas2PNG.Library.InterlaceMethod.NONE;
 
   /**
+   * ガンマ値 ( null の場合 gAMA チャンクは付与されない)
+   * @type {?number}
+   */
+  this.gamma = null;
+
+  /**
+   * 基礎色度 ( null の場合 cHRM チャンクは付与されない)
+   * Primary chromaticities and white point
+   * @type {?{
+   *   whitePointX: number,
+   *   whitePointY: number,
+   *   redX: number,
+   *   redY: number,
+   *   greenX: number,
+   *   greenY: number,
+   *   blueX: number,
+   *   blueY: number}}
+   */
+  this.chrm = null;
+
+  /**
+   * 推奨パレット
+   * name はパレット名, num は以下の通り.
+   * 負数の時は出現する全ての色を推奨パレットに含める
+   * 0 は無効 ( sPLT チャンクを付与しない)
+   * 1 以上の時は出現頻度上位 n 件まで推奨パレットに含める
+   * @type {?{
+   *   name: string,
+   *   num: number
+   * }}
+   */
+  this.splt = null;
+
+  /**
+   * Standard RGB colour space ( null の場合 sRGB チャンクは付与されない)
+   * @type {?Canvas2PNG.Library.RenderingIntent}
+   */
+  this.srgb = null;
+
+  /**
+   * Significant bits ( null の場合 sBIT チャンクは付与されない)
+   * @type {Array.<number>}
+   */
+  this.sbit = null;
+
+  /**
+   * ICC プロファイル ( null の場合 iCCP チャンクは付与されない)
+   * @type {?{
+   *   name: string,
+   *   compressionMethod: Canvas2PNG.Library.CompressionMethod,
+   *   profile: Array
+   * }}
+   */
+  this.iccp = null;
+
+  /**
+   * Image Histogram を保存するかどうか (true で hIST チャンクを付与する)
+   * @type {boolean}
+   */
+  this.hist = false;
+
+  /**
+   * Physical pixel dimensions
+   * @type {?{
+   *   x: number,
+   *   y: number,
+   *   unit: Canvas2PNG.Library.UnitSpecifier
+   * }}
+   */
+  this.phys = null;
+
+  /**
+   * Image last-modification time
+   * @type {Date}
+   */
+  this.time = null;
+
+  /**
+   * Textual data
+   * @type {?{
+   *   keyword: string,
+   *   text: string
+   * }}
+   */
+  this.text = null;
+
+  /**
+   * Compressed textual data
+   * @type {?{
+   *   keyword: string,
+   *   text: string,
+   *   compressionMethod: Canvas2PNG.Library.CompressionMethod
+   * }}
+   */
+  this.ztxt = null;
+
+  /**
    * パレット使用時にαチャンネルを保存するか
    * @type {boolean}
    */
-  this.saveAlpha = true;
+  this.trns = true;
 
   // パラメータによる設定の適用
   for (param in opt_param) {
@@ -182,11 +278,32 @@ function(width, height, opt_param) {
 
   /**
    * パレット
-   * @type {Array}
+   * @type {Array.<number>}
    * @private
    */
-  this.palette_;
+  this.palette_ = null;
 
+  /**
+   * 色出現回数
+   * @type {
+   *   Array.<{
+   *     red: number,
+   *     green: number,
+   *     blue: number,
+   *     alpha: number,
+   *     count: number
+   *   }>
+   * }
+   * @private
+   */
+  this.colourHistogram_ = [];
+
+  /**
+   * パレットの色出現回数
+   * @type {Array.<number>}
+   * @private
+   */
+  this.paletteHistogram_ = [];
 
   // バリデーション
   this.validate_();
@@ -194,16 +311,38 @@ function(width, height, opt_param) {
 
 /**
  * チャンクタイプ
- * @enum {string}
+ * @enum {Array.<number>}
  */
 Canvas2PNG.Library.ChunkType = {
   // 必須チャンク
-  IHDR: 'IHDR',
-  PLTE: 'PLTE',
-  IDAT: 'IDAT',
-  IEND: 'IEND',
+  IHDR: bytearray_('IHDR'),
+  PLTE: bytearray_('PLTE'),
+  IDAT: bytearray_('IDAT'),
+  IEND: bytearray_('IEND'),
   // 補助チャンク
-  TRNS: 'tRNS'
+  TRNS: bytearray_('tRNS'),
+  GAMA: bytearray_('gAMA'),
+  CHRM: bytearray_('cHRM'),
+  SBIT: bytearray_('sBIT'),
+  SRGB: bytearray_('sRGB'),
+  ICCP: bytearray_('iCCP'),
+  BKGD: bytearray_('bKGD'),
+  HIST: bytearray_('hIST'),
+  PHYS: bytearray_('pHYs'),
+  SPLT: bytearray_('sPLT'),
+  TEXT: bytearray_('tEXt'),
+  ZTXT: bytearray_('zTXt'),
+  ITXT: bytearray_('iTXt'),
+  TIME: bytearray_('tIME')
+};
+
+/**
+ * 圧縮フラグ
+ * @enum {number}
+ */
+Canvas2PNG.Library.CompressionFlag = {
+  UNCOMPRESSED: 0,
+  COMPRESSED: 1
 };
 
 /**
@@ -258,6 +397,26 @@ Canvas2PNG.Library.BasicFilterType = {
 Canvas2PNG.Library.InterlaceMethod = {
   NONE: 0,
   ADAM7: 1
+};
+
+/**
+ * Rendering intent for Standard RGB colour space
+ * @enum {number}
+ */
+Canvas2PNG.Library.RenderingIntent = {
+  PERCEPTUAL: 0,
+  RELATIVE: 1,
+  SATURATION: 2,
+  ABSOLUTE: 3
+};
+
+/**
+ * Unit Specifier for Physical pixel dimensions
+ * @enum {number}
+ */
+Canvas2PNG.Library.UnitSpecifier = {
+  UNKNOWN: 0,
+  METRE: 1
 };
 
 /**
@@ -373,7 +532,7 @@ Canvas2PNG.Library.prototype.convert = function(opt_canvasArray) {
 Canvas2PNG.Library.prototype.getPalette = function() {
   var palette, imageInfo;
 
-  if (typeof(this.palette_) === 'array') {
+  if (this.palette_ instanceof Array) {
     return this.palette_;
   }
 
@@ -407,7 +566,7 @@ Canvas2PNG.Library.prototype.validate_ = function() {
       allowDepth = [8, 16];
       break;
     default:
-      throw 'invalid colour type';
+      throw new Error('invalid colour type');
   }
 
   for (i = 0, l = allowDepth.length; i < l; i++) {
@@ -418,7 +577,7 @@ Canvas2PNG.Library.prototype.validate_ = function() {
   }
 
   if (isArrow === false) {
-    throw 'invalid parameter';
+    throw new Error('invalid parameter');
   }
 };
 
@@ -430,15 +589,57 @@ Canvas2PNG.Library.prototype.validate_ = function() {
 Canvas2PNG.Library.prototype.makePng_ = function() {
   var png = [], imageInfo;
 
-  push_(png, Canvas2PNG.Library.Signature);
-  push_(png, this.makeIHDR_());
-
   imageInfo = this.makeImageArray(this.data);
 
+  // signature
+  push_(png, Canvas2PNG.Library.Signature);
+
+  // IHDR
+  push_(png, this.makeIHDR_());
+
+  // cHRM
+  if (typeof(this.chrm) === 'object' && this.chrm !== null) {
+    push_(png, this.makecHRM_(this.chrm));
+  }
+
+  // gAMA
+  if (typeof(this.gamma) === 'number') {
+    push_(png, this.makegAMA_(this.gamma));
+  }
+
+  // iCCP
+  if (typeof(this.iccp) === 'object' && this.iccp !== null) {
+    push_(png, this.makeiCCP_(this.iccp));
+  }
+
+  // sBIT
+  if (this.sbit instanceof Array) {
+    push_(png, this.makesBIT_(this.sbit));
+  }
+
+  // sRGB
+  if (typeof(this.srgb) === 'number') {
+    push_(png, this.makesRGB_(this.srgb));
+  }
+
+  // PLTE
   switch (this.colourType) {
     case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
       push_(png, this.makePLTE_(imageInfo.PLTE));
-      if (this.saveAlpha) {
+      this.palette_ = imageInfo.PLTE;
+
+      // bKGD
+      if (this.bkgd instanceof Array) {
+        push_(png, this.makebKGD_(this.bkgd, this.palette_));
+      }
+
+      // hIST
+      if (this.hist) {
+        push_(png, this.makehIST_(this.paletteHistogram_));
+      }
+
+      // tRNS
+      if (this.trns) {
         push_(png, this.maketRNS_(imageInfo.tRNS));
       }
       break;
@@ -448,10 +649,43 @@ Canvas2PNG.Library.prototype.makePng_ = function() {
     case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
       break;
     default:
-      throw 'TODO';
+      throw new Error('unknown colour type');
   }
 
+  // pHYs
+  if (typeof(this.phys) === 'object' && this.phys !== null) {
+    push_(png, this.makepHYs_(this.phys));
+  }
+
+  // sPLT
+  if (typeof(this.splt) === 'object' && this.splt !== null) {
+    push_(png, this.makesPLT_(this.splt, this.colourHistogram_));
+  }
+
+  // tIME
+  if (this.time instanceof Date) {
+    push_(png, this.maketIME_(this.time));
+  }
+
+  // tEXt
+  if (typeof(this.text) === 'object' && this.text !== null) {
+    push_(png, this.maketEXt_(this.text));
+  }
+
+  // zTXt
+  if (typeof(this.ztxt) === 'object' && this.ztxt !== null) {
+    push_(png, this.makezTXt_(this.ztxt));
+  }
+
+  // iTXt
+  if (typeof(this.itxt) === 'object' && this.itxt !== null) {
+    push_(png, this.makeiTXt_(this.itxt, this.compressionMethod));
+  }
+
+  // IDAT
   push_(png, this.makeIDAT_(imageInfo.IDAT));
+
+  // IEND
   push_(png, this.makeIEND_());
 
   return png;
@@ -465,28 +699,31 @@ Canvas2PNG.Library.prototype.makePng_ = function() {
 Canvas2PNG.Library.prototype.makeIHDR_ = function() {
   var data = [];
 
-  push_(data, this.convertNetworkByteOrder_(this.width, 4));
-  push_(data, this.convertNetworkByteOrder_(this.height, 4));
-  push_(data, this.convertNetworkByteOrder_(this.bitDepth, 1));
-  push_(data, this.convertNetworkByteOrder_(this.colourType, 1));
-  push_(data, this.convertNetworkByteOrder_(this.compressionMethod, 1));
-  push_(data, this.convertNetworkByteOrder_(this.filterMethod, 1));
-  push_(data, this.convertNetworkByteOrder_(this.interlaceMethod, 1));
+  push_(data, this.networkByteOrder_(this.width, 4));
+  push_(data, this.networkByteOrder_(this.height, 4));
+  push_(data, this.networkByteOrder_(this.bitDepth, 1));
+  push_(data, this.networkByteOrder_(this.colourType, 1));
+  push_(data, this.networkByteOrder_(this.compressionMethod, 1));
+  push_(data, this.networkByteOrder_(this.filterMethod, 1));
+  push_(data, this.networkByteOrder_(this.interlaceMethod, 1));
 
   return this.makeChunk_(Canvas2PNG.Library.ChunkType.IHDR, data);
 };
 
 /**
  * make PLTE and IDAT data
- * @return {Object} PLTE プロパティにパレット、IDAT プロパティにピクセル配列、
+ * @return {Object} PLTE プロパティにパレット、IDAT プロパティにピクセル配列,
  *     tRNS プロパティに透明度パレットを含むオブジェクト.
  * @private
  */
 Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
   var pixelArray = [], img = canvasArray,
-      saveAlpha = this.saveAlpha,
+      saveAlpha = this.trns,
       depth = this.bitDepth,
       palette = [], alphaPalette = [], paletteTemp = {}, revTable = {},
+      paletteKeys = [],
+      red = 0, green = 0, blue = 0, alpha = 0,
+      histIndex = {}, hi = 0, hl = 0,
       color, alpha, withAlpha, index, length, tmp, max, mod;
 
   /*
@@ -500,6 +737,27 @@ Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
       color = this.rgb2str_(this.slice_(canvasArray, index, 3));
     }
     paletteTemp[color] = (paletteTemp[color] | 0) + 1;
+
+    // ヒストグラム
+    red = canvasArray[index];
+    green = canvasArray[index + 1];
+    blue = canvasArray[index + 2];
+    alpha = canvasArray[index + 3];
+    hi = ((red << 8 | green) << 8 | blue) << 8 | alpha;
+
+    if (histIndex[hi] === undefined) {
+      hl = this.colourHistogram_.length;
+      this.colourHistogram_.push({
+        red: red,
+        green: green,
+        blue: blue,
+        alpha: alpha,
+        count: 0
+      });
+      histIndex[hi] = hl;
+    }
+
+    this.colourHistogram_[histIndex[hi]].count++;
   }
 
   withAlpha = (this.colourType & 0x04) > 0;
@@ -545,21 +803,72 @@ Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
       // XXX: 出現回数でsortした方が良いか？
 
       // パレットの作成
-      index = 0;
       for (color in paletteTemp) {
+        paletteKeys.push(color);
+      }
+
+      // tRNS チャンクを付与する際はアルファ値 255 のパレットを後方に配置する
+      if (saveAlpha) {
+        paletteKeys.sort(function(a, b) {
+          return (a.charCodeAt(3) < b.charCodeAt(3)) ? -1 :
+                 (a.charCodeAt(3) > b.charCodeAt(3)) ? 1 :
+                 (a.charCodeAt(0) < b.charCodeAt(0)) ? -1 :
+                 (a.charCodeAt(0) > b.charCodeAt(0)) ? 1 :
+                 (a.charCodeAt(1) < b.charCodeAt(1)) ? -1 :
+                 (a.charCodeAt(1) > b.charCodeAt(1)) ? 1 :
+                 (a.charCodeAt(2) < b.charCodeAt(2)) ? -1 :
+                 (a.charCodeAt(2) > b.charCodeAt(2)) ? 1 :
+                 0;
+        });
+        /*
+        for (index = 0, length = paletteKeys.length; index < length; index++) {
+          if (paletteKeys[index].charCodeAt(3) === 255) {
+            paletteKeys.push(paletteKeys.splice(index, 1).shift());
+            index--; length--;
+          }
+        }
+        */
+      }
+
+      for (index = 0, length = paletteKeys.length; index < length; index++) {
+        color = paletteKeys[index];
+
         if (saveAlpha) {
-          alphaPalette[index] = color.charAt(3);
+          if (color.charCodeAt(3) !== 255) {
+            alphaPalette[index] = color.charCodeAt(3);
+          }
           revTable[color] = index;
         } else {
           revTable[color.slice(0, 3)] = index;
         }
-        palette[index] = color.slice(0, 3);
-        index++;
+        palette.push(color.charCodeAt(0));
+        palette.push(color.charCodeAt(1));
+        palette.push(color.charCodeAt(2));
+      }
+
+      // 背景色が指定されていた場合, 背景色もパレットに含める
+      if (this.bkgd instanceof Array) {
+        if (this.bkgd.length !== 3) {
+          throw new Error('wrong background-color length');
+        }
+        if (!(this.rgb2str_(this.bkgd) in paletteTemp)) {
+          if ((palette.length / 3) === (1 << this.bitDepth)) {
+            throw new Error('can not add background-color to palette');
+          }
+          palette.push(this.bkgd[0]);
+          palette.push(this.bkgd[1]);
+          palette.push(this.bkgd[2]);
+        }
       }
 
       // パレット数のチェック
-      if (palette.length > (1 << this.bitDepth)) {
-        throw 'over ' + (1 << this.bitDepth) + ' colors';
+      if ((palette.length / 3) > (1 << this.bitDepth)) {
+        throw new Error('over ' + (1 << this.bitDepth) + ' colors');
+      }
+
+      // ヒストグラムの初期化
+      for (index = 0, length = palette.length / 3; index < length; index++) {
+        this.paletteHistogram_[index] = 0;
       }
 
       // make image array
@@ -569,12 +878,13 @@ Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
         } else {
           color = this.rgb2str_(this.slice_(canvasArray, index, 3));
         }
+        this.paletteHistogram_[revTable[color]]++;
         pixelArray.push([revTable[color]]);
       }
 
       break;
     default:
-      throw 'invalid colour type';
+      throw new Error('invalid colour type');
   }
 
   return {
@@ -585,17 +895,543 @@ Canvas2PNG.Library.prototype.makeImageArray = function(canvasArray) {
 };
 
 /**
+ * 基礎色度
+ * @param {{
+ *   whitePointX: number,
+ *   whitePointY: number,
+ *   redX: number,
+ *   redY: number,
+ *   greenX: number,
+ *   greenY: number,
+ *   blueX: number,
+ *   blueY: number}} chrm 基礎色度情報.
+ * @return {Array} cHRM チャンク byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makecHRM_ = function(chrm) {
+  var data = [];
+
+  push_(data, this.networkByteOrder_(chrm.whitePointX * 10000 | 0, 4));
+  push_(data, this.networkByteOrder_(chrm.whitePointY * 10000 | 0, 4));
+  push_(data, this.networkByteOrder_(chrm.redX * 10000 | 0, 4));
+  push_(data, this.networkByteOrder_(chrm.redY * 10000 | 0, 4));
+  push_(data, this.networkByteOrder_(chrm.greenX * 10000 | 0, 4));
+  push_(data, this.networkByteOrder_(chrm.greenY * 10000 | 0, 4));
+  push_(data, this.networkByteOrder_(chrm.blueX * 10000 | 0, 4));
+  push_(data, this.networkByteOrder_(chrm.blueY * 10000 | 0, 4));
+
+  return this.makeChunk_(Canvas2PNG.Library.ChunkType.CHRM, data);
+};
+
+/**
+ * ガンマ値
+ * @param {number} gamma ガンマ値.
+ * @return {Array} gAMA チャンク byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makegAMA_ = function(gamma) {
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.GAMA,
+    this.networkByteOrder_((100000 / gamma) + 0.5 | 0, 4)
+  );
+};
+/**
+ * Significant bits
+ * @param {Array.<number>} sbit 元データの各色の有効ビット数を格納した配列.
+ * @return {Array} sBIT チャンク byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makesBIT_ = function(sbit) {
+  var data = [];
+
+  switch (this.colourType) {
+    case Canvas2PNG.Library.ColourType.GRAYSCALE:
+      // grayscale bits
+      if (sbit.length !== 1) {
+        throw new Error('wrong sBIT length');
+      }
+      push_(data, sbit.slice(0, 1));
+      break;
+    case Canvas2PNG.Library.ColourType.TRUECOLOR:
+      // red, green, blue bits
+      if (sbit.length !== 3) {
+        throw new Error('wrong sBIT length');
+      }
+      push_(data, sbit.slice(0, 3));
+      break;
+    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+      // red, green, blue bits
+      if (sbit.length !== 3) {
+        throw new Error('wrong sBIT length');
+      }
+      push_(data, sbit.slice(0, 3));
+      break;
+    case Canvas2PNG.Library.ColourType.GRAYSCALE_WITH_ALPHA:
+      // grayscale, alpha bits
+      if (sbit.length !== 2) {
+        throw new Error('wrong sBIT length');
+      }
+      push_(data, sbit.slice(0, 2));
+      break;
+    case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
+      // red, green, blue, alpha bits
+      if (sbit.length !== 4) {
+        throw new Error('wrong sBIT length');
+      }
+      push_(data, sbit.slice(0, 4));
+      break;
+    default:
+      throw new Error('unknown colour type');
+  }
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.SBIT,
+    data
+  );
+};
+
+/**
+ * Standard RGB colour space.
+ * @param {Canvas2PNG.Library.RenderingIntent} ri レンダリング時の解釈仕様.
+ * @return {Array} sRGB チャンク byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makesRGB_ = function(ri) {
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.SRGB,
+    [ri]
+  );
+};
+
+/**
+ * ICC プロファイル
+ * XXX: 未テスト.
+ * @param {?{
+ *   name: string,
+ *   compressionMethod: Canvas2PNG.Library.CompressionMethod,
+ *   profile: Array
+ * }} iccp ICCP プロファイル.
+ * @return {Array} iCCP チャンク byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makeiCCP_ = function(iccp) {
+  var data = [],
+      namearray, c, i, l;
+
+  // profile name
+  namearray = bytearray_(iccp.name);
+  l = namearray.length;
+  if (l > 79) {
+    throw new Error('ICCP Profile name is over 79 characters');
+  }
+  for (i = 0; i < l; i++) {
+    if (!isLatin1Printable_(namearray[i])) {
+      throw new Error('wrong iccp profile name.');
+    }
+  }
+  push_(data, namearray);
+
+  // null separator
+  data.push(0);
+
+  // compression method
+  data.push(iccp.compressionMethod);
+
+  // profile
+  switch (iccp.compressionMethod) {
+    case Canvas2PNG.Library.CompressionMethod.DEFLATE:
+      push_(data, Zlib.Deflate.compress(iccp.profile));
+      break;
+    default:
+      throw new Error('unknown ICC Profile compression method');
+      break;
+  }
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.ICCP,
+    data
+  );
+};
+
+/**
+ * Background colour
+ * @param {Array.<number>} backgroundColour 背景色を表す配列.
+ *     グレースケールの際はグレーレベル(0-65535),
+ *     それ以外では Red, Green, Blue (0-65535) の順に格納された配列.
+ *     ビット深度が16未満の際は下位ビットのみ使用される.
+ * @param {Array.<number>} palette Indexed-Colour の際に使用するパレット配列.
+ * @return {Array.<number>} bKGD チャンク byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makebKGD_ = function(backgroundColour, palette) {
+  var data = [],
+      paletteIndex = null,
+      i, l;
+
+  switch (this.colourType) {
+    case Canvas2PNG.Library.ColourType.GRAYSCALE:
+    case Canvas2PNG.Library.ColourType.GRAYSCALE_WITH_ALPHA:
+      // grayscale
+      if (backgroundColour.length !== 1) {
+        throw new Error('wrong background-color length');
+      }
+      push_(data, this.networkByteOrder_(backgroundColour[0], 2));
+      break;
+    case Canvas2PNG.Library.ColourType.TRUECOLOR:
+    case Canvas2PNG.Library.ColourType.TRUECOLOR_WITH_ALPHA:
+      // red, green, blue
+      if (backgroundColour.length !== 3) {
+        throw new Error('wrong background-color length');
+      }
+      push_(data, this.networkByteOrder_(backgroundColour[0], 2));
+      push_(data, this.networkByteOrder_(backgroundColour[1], 2));
+      push_(data, this.networkByteOrder_(backgroundColour[2], 2));
+      break;
+    case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
+      // red, green, blue
+      if (backgroundColour.length !== 3) {
+        throw new Error('wrong background-color length');
+      }
+      // palette index
+      for (i = 0, l = palette.length; i < l; i += 3) {
+        if (palette[i + 0] === backgroundColour[0] &&
+            palette[i + 1] === backgroundColour[1] &&
+            palette[i + 2] === backgroundColour[2]) {
+          paletteIndex = i / 3;
+        }
+      }
+      // 対象となる色が見つからなかった場合は bKGD チャンクを付与しない
+      // ただし、PLTE チャンクを作成時に背景色もパレットに追加するため
+      // 実装が正常である場合にこの条件は満たされることはない
+      if (paletteIndex === null) {
+        return [];
+      }
+      data.push(paletteIndex);
+      break;
+    default:
+      throw new Error('unknown colour type');
+  }
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.BKGD,
+    data
+  );
+};
+
+/**
+ * Image Histogram
+ * @param {Array.<number>} hist パレットエントリ毎の出現回数配列.
+ * @return {Array.<number>} hIST チャンク byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makehIST_ = function(hist) {
+  var data = [],
+      max = max_(hist),
+      h = 0,
+      i = 0,
+      l = hist.length;
+
+  // make histogram
+  for (; i < l; i++) {
+    // 0 は出現していない色のみであるべきなので 1 回でも出現したものは
+    // 1-65535 の範囲に分布する必要がある.
+    h = hist[i];
+    h = (h === 0) ? 0 : (h / max * (0xffff - 1) + 1) + 0.5 | 0;
+    push_(data, this.networkByteOrder_(h, 2));
+  }
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.HIST,
+    data
+  );
+};
+
+/**
+ * Suggested palette
+ * @param {?{
+ *   name: string,
+ *   num: number
+ * }} splt sPLT 設定オブジェクト.
+ * @param {Array.<number>} hist パレットエントリ毎の出現回数配列.
+ * @return {Array.<number>} sPLT チャンク byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makesPLT_ = function(splt, hist) {
+  var data = [],
+      sortedHist,
+      max = 0,
+      hist,
+      i = 0,
+      l = splt.num < 0 ? hist.length : splt.num,
+      freq = 0,
+      red, green, blue, alpha;
+
+  // チャンクを付与しない
+  if (l === 0) {
+    return [];
+  }
+
+  // name
+  push_(data, bytearray_(splt.name));
+
+  // null separator
+  data.push(0);
+
+  // sample depth, RGBA value
+  switch (this.bitDepth) {
+    case 16:
+      data.push(16);
+      break;
+    case 8:
+    case 4:
+    case 2:
+    case 1:
+      data.push(8);
+      break;
+    default:
+      throw new Error('invalid bit depth');
+  }
+
+  // 出現頻度順にソート
+  sortedHist = hist.sort(function(a, b) {
+    return a.count < b.count ? 1 :
+           a.count > b.count ? -1 :
+           0;
+  });
+  max = sortedHist[0].count;
+
+  // make histogram
+  for (; i < l; i++) {
+    hist = sortedHist[i];
+
+    switch (this.bitDepth) {
+      // RGBA
+      case 16:
+        push_(data, this.networkByteOrder_(hist.red << 8 | hist.red, 2));
+        push_(data, this.networkByteOrder_(hist.green << 8 | hist.green, 2));
+        push_(data, this.networkByteOrder_(hist.blue << 8 | hist.blue, 2));
+        push_(data, this.networkByteOrder_(hist.alpha << 8 | hist.alpha, 2));
+        break;
+      case 8:
+      case 4:
+      case 2:
+      case 1:
+        data.push(hist.red);
+        data.push(hist.green);
+        data.push(hist.blue);
+        data.push(hist.alpha);
+        break;
+      default:
+        throw new Error('invalid bit depth');
+    }
+
+    // freq: 0-65535 の範囲にする
+    freq = hist.count / max * 0xffff + 0.5 | 0;
+    push_(data, this.networkByteOrder_(freq, 2));
+  }
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.SPLT,
+    data
+  );
+};
+
+/**
  * Palette
+ * @param {Array} palette パレット配列.
  * @return {Array} PLTE チャンクバイナリ byte array.
  * @private
  */
 Canvas2PNG.Library.prototype.makePLTE_ = function(palette) {
   if (palette.length > 256) {
-    throw 'over 256 colors';
+    throw new Error('over 256 colors');
   }
+
   return this.makeChunk_(
     Canvas2PNG.Library.ChunkType.PLTE,
     palette
+  );
+};
+
+/**
+ * Physical pixel dimensions
+ * @param {?{
+ *   x: number,
+ *   y: number,
+ *   unit: Canvas2PNG.Library.UnitSpecifier
+ * }} phys phisical pixel dimensions settings.
+ * @return {Array} pHYs チャンクバイナリ byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makepHYs_ = function(phys) {
+  var data = [];
+
+  push_(data, this.networkByteOrder_(phys.x, 4));
+  push_(data, this.networkByteOrder_(phys.y, 4));
+  data.push(phys.unit);
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.PHYS,
+    data
+  );
+};
+
+/**
+ * Textual data
+ * @param {?{
+ *   keyword: string,
+ *   text: string
+ * }} text text data.
+ * @return {Array} tEXt チャンクバイナリ byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.maketEXt_ = function(text) {
+  var data = [];
+
+  // keyword
+  push_(data, bytearray_(text.keyword));
+
+  // null separator
+  data.push(0);
+
+  // text string
+  push_(data, bytearray_(text.text));
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.TEXT,
+    data
+  );
+};
+
+
+/**
+ * Compressed textual data
+ * @param {?{
+ *   keyword: string,
+ *   text: string,
+ *   compressionMethod: Canvas2PNG.Library.CompressionMethod
+ * }} text text data.
+ * @return {Array} zTXt チャンクバイナリ byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makezTXt_ = function(text) {
+  var data = [];
+
+  // keyword
+  push_(data, bytearray_(text.keyword));
+
+  // null separator
+  data.push(0);
+
+  // compression method
+  data.push(text.compressionMethod);
+
+  // data
+  switch (text.compressionMethod) {
+    case Canvas2PNG.Library.CompressionMethod.DEFLATE:
+      push_(data, Zlib.Deflate.compress(bytearray_(text.text)));
+      break;
+    default:
+      throw new Error('unknown compression method');
+      break;
+  }
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.ZTXT,
+    data
+  );
+};
+
+/**
+ * International textual data
+ * @param {?{
+ *   keyword: string,
+ *   text: string,
+ *   lang: string,
+ *   translatedKeyword: string,
+ *   compressionMethod: ?Canvas2PNG.Library.CompressionMethod
+ * }} text text data.
+ * @return {Array} iTXt チャンクバイナリ byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.makeiTXt_ = function(text) {
+  var data = [], compressedText;
+
+  // keyword
+  push_(data, bytearray_(text.keyword));
+
+  // null separator
+  data.push(0);
+
+  if (typeof(text.compressionMethod) === 'number') {
+    // compression flag
+    data.push(Canvas2PNG.Library.CompressionFlag.COMPRESSED);
+
+    // compression method
+    data.push(text.compressionMethod);
+
+    // text compression
+    switch (text.compressionMethod) {
+      case Canvas2PNG.Library.CompressionMethod.DEFLATE:
+        compressedText = Zlib.Deflate.compress(bytearray_(utf8_(text.text)));
+        break;
+      default:
+        throw new Error('unknown compression method');
+    }
+  } else {
+    // compression flag
+    data.push(Canvas2PNG.Library.CompressionFlag.UNCOMPRESSED);
+
+    // compression method
+    data.push(0);
+
+    // text
+    compressedText = bytearray_(utf8_(text.text));
+  }
+
+  // language tag
+  push_(data, bytearray_(text.lang));
+
+  // null separator
+  data.push(0);
+
+  // translated keyword
+  if (typeof(text.translatedKeyword) === 'string') {
+    push_(data, bytearray_(utf8_(text.translatedKeyword)));
+  }
+
+  // null separator
+  data.push(0);
+
+  // text
+  push_(data, compressedText);
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.ITXT,
+    data
+  );
+};
+
+
+/**
+ * Image last-modification time
+ * @param {Date} time last-modification time.
+ * @return {Array} tIME チャンクバイナリ byte array.
+ * @private
+ */
+Canvas2PNG.Library.prototype.maketIME_ = function(time) {
+  var data = [];
+
+  push_(data, this.networkByteOrder_(time.getUTCFullYear(), 2));
+  data.push(time.getUTCMonth() + 1);
+  data.push(time.getUTCDate());
+  data.push(time.getUTCHours());
+  data.push(time.getUTCMinutes());
+  data.push(time.getUTCSeconds());
+
+  return this.makeChunk_(
+    Canvas2PNG.Library.ChunkType.TIME,
+    data
   );
 };
 
@@ -652,7 +1488,7 @@ Canvas2PNG.Library.prototype.makeIDAT_ = function(pixelArray) {
           push_(idat, this.filter_(line, bpp));
           break;
         default:
-          throw 'unknown filter method';
+          throw new Error('unknown filter method');
       }
 
       this.prevLine_ = line;
@@ -665,7 +1501,7 @@ Canvas2PNG.Library.prototype.makeIDAT_ = function(pixelArray) {
       idat = Zlib.Deflate.compress(idat);
       break;
     default:
-      throw 'unknown compression method';
+      throw new Error('unknown compression method');
   }
 
   return this.makeChunk_(Canvas2PNG.Library.ChunkType.IDAT, idat);
@@ -682,25 +1518,35 @@ Canvas2PNG.Library.prototype.makeIEND_ = function() {
 
 /**
  * Transparency
+ * @param {(number|Array.<number>)} alpha α値.
+ *     Indexed-Color では Palette に対応するα値の配列,
+ *     Grayscale では透明として扱うグレーレベルの数値,
+ *     Truecolor では透明として扱う色を [Red, Green, Blue] で指定.
+ * @return {Array.<number>} tRNS チャンクバイナリ byte array.
+ * @private
  */
-Canvas2PNG.Library.prototype.maketRNS_ = function(palette) {
-  var alphaPalette = [];
+Canvas2PNG.Library.prototype.maketRNS_ = function(alpha) {
+  var data = [], i;
 
   switch (this.colourType) {
     case Canvas2PNG.Library.ColourType.GRAYSCALE:
+      push_(data, this.networkByteOrder_(alpha, 2));
+      break;
     case Canvas2PNG.Library.ColourType.TRUECOLOR:
-      throw 'TODO'; // TODO
+      push_(data, this.networkByteOrder_(alpha[0], 2));
+      push_(data, this.networkByteOrder_(alpha[1], 2));
+      push_(data, this.networkByteOrder_(alpha[2], 2));
       break;
     case Canvas2PNG.Library.ColourType.INDEXED_COLOR:
-      alphaPalette = palette;
+      data = alpha;
       break;
     default:
-      throw 'invalid colour type';
+      throw new Error('invalid colour type');
   }
 
   return this.makeChunk_(
     Canvas2PNG.Library.ChunkType.TRNS,
-    alphaPalette
+    data
   );
 };
 
@@ -738,7 +1584,7 @@ Canvas2PNG.Library.prototype.getBytesPerCompletePixel_ = function() {
       }
       break;
     default:
-      throw 'unknown colour type';
+      throw new Error('unknown colour type');
   }
 
   return bpp;
@@ -760,7 +1606,7 @@ Canvas2PNG.Library.prototype.getInterlace_ = function() {
       interlace = this.interlaceAdam7_;
       break;
     default:
-      throw 'TODO';
+      throw new Error('unknown interlace method');
   }
 
   return interlace;
@@ -851,6 +1697,8 @@ Canvas2PNG.Library.prototype.interlaceAdam7_ = function(pixelArray) {
 
 /**
  * Pixel Array to Byte Array
+ * @param {Array|CanvasPixelArray} pixelArray canvas pixel array like.
+ * @return {Array} pixel byte array.
  */
 Canvas2PNG.Library.prototype.pixelArrayToByteArray_ = function(pixelArray) {
   var byteArray = [], pixel, color,
@@ -912,11 +1760,11 @@ Canvas2PNG.Library.prototype.getFilter_ = function() {
           filter = this.filterPaeth_;
           break;
         default:
-          throw 'TODO';
+          throw new Error('unknown filter type');
       }
       break;
     default:
-      throw 'unknown filter method';
+      throw new Error('unknown filter method');
   }
 
   return filter;
@@ -1051,7 +1899,7 @@ Canvas2PNG.Library.prototype.paethPredictor_ = function(a, b, c) {
 Canvas2PNG.Library.prototype.slice_ = function(arraylike, start, length) {
   var result, arraylength = arraylike.length;
 
-  if (typeof(arraylike) === 'array') {
+  if (arraylike instanceof Array) {
     return arraylike.slice(start, start + length);
   }
 
@@ -1069,7 +1917,7 @@ Canvas2PNG.Library.prototype.slice_ = function(arraylike, start, length) {
 
 /**
  * チャンクの作成
- * @param {canvas2png.ChunkType} type Chunk type.
+ * @param {Canvas2PNG.Library.ChunkType} type Chunk type.
  * @param {Array} data Chunk data byte array.
  * @return {Array} Chunk byte array.
  * @private
@@ -1077,12 +1925,8 @@ Canvas2PNG.Library.prototype.slice_ = function(arraylike, start, length) {
 Canvas2PNG.Library.prototype.makeChunk_ = function(type, data) {
   var chunk = [], length = data.length;
 
-  // XXX チャンクタイプは文字列ではなくバイト列で宣言するか？
-  type = type.split('').map(function(c) { return c.charCodeAt(0); });
-
   // Length*
-  push_(chunk,
-      this.convertNetworkByteOrder_(length, 4));
+  push_(chunk, this.networkByteOrder_(length, 4));
   // Type
   push_(chunk, type);
   // Data
@@ -1090,10 +1934,7 @@ Canvas2PNG.Library.prototype.makeChunk_ = function(type, data) {
   // data の方が一般的には大きくなるため data に type を結合する
   unshift_(data, type);
   // CRC
-  push_(
-    chunk,
-    this.convertNetworkByteOrder_(this.getCRC32_(data), 4)
-  );
+  push_(chunk, this.networkByteOrder_(this.getCRC32_(data), 4));
 
   return chunk;
 };
@@ -1105,7 +1946,7 @@ Canvas2PNG.Library.prototype.makeChunk_ = function(type, data) {
  * @return {Array} network byte order byte array.
  * @private
  */
-Canvas2PNG.Library.prototype.convertNetworkByteOrder_ = function(number, size) {
+Canvas2PNG.Library.prototype.networkByteOrder_ = function(number, size) {
   var tmp = [], octet, nullchar;
 
   do {
@@ -1145,7 +1986,6 @@ Canvas2PNG.Library.prototype.updateCRC32_ = function(data, crc) {
 /**
  * CRC32 ハッシュ値を取得
  * @param {Array} data data byte array.
- * @param {number} crc CRC32.
  * @return {number} CRC32.
  * @private
  */
@@ -1205,22 +2045,90 @@ Canvas2PNG.Library.prototype.fromCharCode_ = function(code) {
 };
 
 /**
- * Array.prototype.push.apply ショートカット
+ * 配列の末尾への結合を破壊的に行う.
  * @param {Array} dst 結合先となる配列.
  * @param {Array} src 結合元となる配列.
  */
 function push_(dst, src) {
-  return Array.prototype.push.apply(dst, src);
+  var i = 0, l = src.length;
+
+  for (; i < l; i++) {
+    dst.push(src[i]);
+  }
+
+  return dst;
 }
 
 /**
- * Array.prototype.unshift.apply ショートカット
+ * 配列の先頭への結合を破壊的に行う
  * @param {Array} dst 結合先となる配列.
  * @param {Array} src 結合元となる配列.
  * @private
  */
 function unshift_(dst, src) {
-  return Array.prototype.unshift.apply(dst, src);
+  var i = 0, l = src.length;
+
+  for (; i < l; i++) {
+    dst.unshift(src[l - i - 1]);
+  }
+
+  return dst;
+}
+
+/**
+ * 文字列から bytearray への変換
+ * @param {string} str byte array に変換する文字列.
+ * @return {Array.<number>} 変換した byte array.
+ * @private
+ */
+function bytearray_(str) {
+  var bytearray = str.split(''), i, l;
+
+  for (i = 0, l = bytearray.length; i < l; i++) {
+    bytearray[i] = bytearray[i].charCodeAt(0);
+  }
+
+  return bytearray;
+}
+
+/**
+ * Math.max.apply 代替
+ * @param {Array.<number>} array 対象となる配列.
+ * @return {number} array の中で最大の数値.
+ * @private
+ */
+function max_(array) {
+  var max = 0,
+      i = 0,
+      l = array.length;
+
+  for (; i < l; i++) {
+    max = (max < array[i] || i === 0) ? array[i] : max;
+  }
+
+  return max;
+}
+
+/**
+ * Latin-1 で表示可能な文字か判別する.
+ * @param {number} charCode check character code.
+ * @return {boolean} Latin-1 の表示可能な文字ならば true, それ以外ならば false.
+ * @private
+ */
+function isLatin1Printable_(charCode) {
+  return !((charCode < 32) ||
+           (charCode > 126 && charCode < 161) ||
+           (charCode > 255));
+}
+
+/**
+ * 文字列を UTF-8 文字列に変換する
+ * @param {string} str UTF-8 に変換する文字列.
+ * @return {string} UTF-8 文字列.
+ * @private
+ */
+function utf8_(str) {
+  return unescape(encodeURIComponent(str));
 }
 
 
@@ -1231,7 +2139,7 @@ function unshift_(dst, src) {
 /**
  * @define {boolean} no export symbols.
  */
-Canvas2PNG.NO_EXPORT = false;
+Canvas2PNG.NO_EXPORT = true;
 
 if (!Canvas2PNG.NO_EXPORT) {
   goog.exportSymbol('Canvas2PNG', Canvas2PNG.Library);
@@ -1259,10 +2167,13 @@ if (!Canvas2PNG.NO_EXPORT) {
     'Canvas2PNG.InterlaceMethod',
     Canvas2PNG.Library.InterlaceMethod
   );
-  goog.exportProperty(
-    Canvas2PNG.Library.prototype,
-    'convert',
-    Canvas2PNG.Library.prototype.convert
+  goog.exportSymbol(
+    'Canvas2PNG.RenderingIntent',
+    Canvas2PNG.Library.RenderingIntent
+  );
+  goog.exportSymbol(
+    'Canvas2PNG.UnitSpecifier',
+    Canvas2PNG.Library.UnitSpecifier
   );
 }
 
