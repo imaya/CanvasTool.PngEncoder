@@ -518,11 +518,11 @@ CanvasTool.PngEncoder.Adam7Table_ = [
 ];
 
 /**
- * PNGへ変換を行う
+ * PNG へ変換を行う
  * @return {string} PNGバイナリ.
  */
 CanvasTool.PngEncoder.prototype.convert = function(opt_canvasArray) {
-  return String.fromCharCode.apply(this, this.makePng_());
+  return str_(this.makePng_());
 };
 
 /**
@@ -2108,6 +2108,20 @@ function max_(array) {
   }
 
   return max;
+}
+
+/**
+ * bytearray から string へ変換
+ * @private
+ */
+function str_(bytearray) {
+  var tmp = [], i = 0, l = bytearray.length;
+
+  for (; i < l; i++) {
+    tmp[i] = String.fromCharCode(bytearray[i]);
+  }
+
+  return tmp.join('');
 }
 
 /**
