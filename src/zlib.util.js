@@ -40,26 +40,26 @@ Zlib.Util = {};
 /**
  * make network byte order byte array from integer
  * @param {number} number source number.
- * @param {number=} padding padding.
+ * @param {number=} size array size.
  * @return {Array} network byte order array.
  */
-Zlib.Util.convertNetworkByteOrder = function(number, padding) {
+Zlib.Util.convertNetworkByteOrder = function(number, size) {
   var tmp = [], octet, nullchar;
 
   do {
     octet = number & 0xff;
-    tmp.unshift(octet);
+    tmp.push(octet);
     number >>>= 8;
   } while (number > 0);
 
-  if (typeof(padding) === 'number') {
+  if (typeof(size) === 'number') {
     nullchar = 0;
-    while (tmp.length < padding) {
-      tmp.unshift(nullchar);
+    while (tmp.length < size) {
+      tmp.push(nullchar);
     }
   }
 
-  return tmp;
+  return tmp.reverse();
 };
 
 
@@ -92,38 +92,25 @@ Zlib.Util.slice = function(arraylike, start, length) {
 /**
  * 配列風のオブジェクトの結合
  * 結合先の配列に結合元の配列を追加します.
- * @param {Array|Uint8Array} arraylike1 結合先配列.
- * @param {Array|Uint8Array} arraylike2 結合元配列.
- * @return {Array|Uint8Array} 結合後の配列.
+ * @param {Array|Uint8Array} dst 結合先配列.
+ * @param {Array|Uint8Array} src 結合元配列.
+ * @return {number} 結合後の配列サイズ.
  */
-Zlib.Util.concat = function(arraylike1, arraylike2) {
-  var length1 = arraylike1.length,
-      length2 = arraylike2.length,
-      index,
-      BufSize = 0xffff;
+Zlib.Util.push = function(dst, src) {
+  var i = 0, dl = src.length, sl = src.length, pushImpl = (!!dst.push);
 
-  if (arraylike1 instanceof Array && arraylike2 instanceof Array) {
-    if (arraylike2.length > BufSize) {
-      for (index = 0; index < length2; index += BufSize) {
-        Array.prototype.push.apply(
-            arraylike1,
-            arraylike2.slice(index, index + BufSize)
-        );
-      }
-      return arraylike1;
-    } else {
-      Array.prototype.push.apply(arraylike1, arraylike2);
-      return arraylike1;
+  if (pushImpl) {
+    for (; i < sl; i++) {
+      dst.push(src[i]);
+    }
+  } else {
+    for (; i < sl; i++) {
+      dst[dl + i] = src[i];
     }
   }
 
-  for (index = 0; index < length2; index++) {
-    arraylike1[length1 + index] = arraylike2[index];
-  }
-
-  return arraylike1;
+  return dst.length;
 }
-
 
 // end of scope
 });

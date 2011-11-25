@@ -75,7 +75,7 @@ Zlib.Deflate = function(buffer, opt_params) {
 };
 
 // Zlib.Util のエイリアス
-var concat = Zlib.Util.concat;
+var push = Zlib.Util.push;
 var slice = Zlib.Util.slice;
 var convertNetworkByteOrder = Zlib.Util.convertNetworkByteOrder;
 
@@ -148,8 +148,8 @@ Zlib.Deflate.prototype.compress = function() {
   // make zlib string
   deflate = [];
   deflate.push(cmf, flg);
-  concat(deflate, compressedData);
-  concat(deflate, adler);
+  push(deflate, compressedData);
+  push(deflate, adler);
 
   return deflate;
 };
@@ -176,20 +176,20 @@ Zlib.Deflate.prototype.makeBlocks = function() {
         position += blockArray.length;
 
         // make block
-        concat(
+        push(
           blocks,
           this.makeNocompressBlock(blockArray, (position === length))
         );
       }
       break;
     case Zlib.Deflate.CompressionType.FIXED:
-      concat(
+      push(
         blocks,
         this.makeFixedHuffmanBlock(this.buffer, true)
       );
       break;
     case Zlib.Deflate.CompressionType.DYNAMIC:
-      concat(
+      push(
         blocks,
         this.makeDynamicHuffmanBlock(this.buffer, true)
       );
@@ -209,26 +209,26 @@ Zlib.Deflate.prototype.makeBlocks = function() {
  */
 Zlib.Deflate.prototype.makeNocompressBlock =
 function(blockArray, isFinalBlock) {
-  var header = [], bfinal, btype, len, nlen, i, l;
+  var block = [], bfinal, btype, len, nlen, i, l;
 
   // header
   bfinal = isFinalBlock ? 1 : 0;
   btype = Zlib.Deflate.CompressionType.NONE;
-  header.push((bfinal) | (btype << 1));
+  block.push((bfinal) | (btype << 1));
 
   // length
   len = blockArray.length;
   nlen = (~len + 0x10000) & 0xffff;
-  header.push(
+  block.push(
              len & 0xff,
      (len >>> 8) & 0xff,
             nlen & 0xff,
     (nlen >>> 8) & 0xff
   );
 
-  Array.prototype.unshift.apply(blockArray, header);
+  push(block, blockArray);
 
-  return blockArray;
+  return block;
 };
 
 /**

@@ -49,7 +49,7 @@ Zlib.RawDeflate = function(type) {
 };
 
 // Zlib.Util のエイリアス
-var concat = Zlib.Util.concat;
+var push = Zlib.Util.push;
 var slice = Zlib.Util.slice;
 
 /**
@@ -311,10 +311,10 @@ Lz77Match.prototype.toLz77Array = function() {
       codeArray = [];
 
   // length
-  concat(codeArray, this.getLengthCode_(length));
+  push(codeArray, this.getLengthCode_(length));
 
   // distance
-  concat(codeArray, this.getDistanceCode_(dist));
+  push(codeArray, this.getDistanceCode_(dist));
 
 
   return codeArray;
@@ -360,7 +360,7 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
     // 終わりの方でもうマッチしようがない場合はそのまま流し込む
     if (matchKeyArray.length < Zlib.RawDeflate.Lz77MinLength &&
         skipLength === 0) {
-      concat(lz77buf, matchKeyArray);
+      push(lz77buf, matchKeyArray);
 
       if (isDynamic) {
         for (i = 0, l = matchKeyArray.length; i < l; i++) {
@@ -414,7 +414,7 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
         lz77Array = longestMatch.toLz77Array();
 
         // LZ77 符号化を行い結果に格納
-        concat(lz77buf, lz77Array);
+        push(lz77buf, lz77Array);
         if (isDynamic) {
           freqsLitLen[lz77Array[0]]++;
           freqsDist[lz77Array[3]]++;

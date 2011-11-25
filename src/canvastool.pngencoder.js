@@ -1923,18 +1923,18 @@ CanvasTool.PngEncoder.prototype.slice_ = function(arraylike, start, length) {
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeChunk_ = function(type, data) {
-  var chunk = [], length = data.length;
+  var chunk = [], length = data.length, crcTarget = [];
 
-  // Length*
+  // Length
   push_(chunk, this.networkByteOrder_(length, 4));
   // Type
   push_(chunk, type);
   // Data
   push_(chunk, data);
-  // data の方が一般的には大きくなるため data に type を結合する
-  unshift_(data, type);
   // CRC
-  push_(chunk, this.networkByteOrder_(this.getCRC32_(data), 4));
+  push_(crcTarget, type);
+  push_(crcTarget, data);
+  push_(chunk, this.networkByteOrder_(this.getCRC32_(crcTarget), 4));
 
   return chunk;
 };
@@ -1951,18 +1951,18 @@ CanvasTool.PngEncoder.prototype.networkByteOrder_ = function(number, size) {
 
   do {
     octet = number & 0xff;
-    tmp.unshift(octet);
+    tmp.push(octet);
     number >>>= 8;
   } while (number > 0);
 
   if (typeof(size) === 'number') {
     nullchar = 0;
     while (tmp.length < size) {
-      tmp.unshift(nullchar);
+      tmp.push(nullchar);
     }
   }
 
-  return tmp;
+  return tmp.reverse();
 };
 
 /**
@@ -2050,29 +2050,19 @@ CanvasTool.PngEncoder.prototype.fromCharCode_ = function(code) {
  * @param {Array} src 結合元となる配列.
  */
 function push_(dst, src) {
-  var i = 0, l = src.length;
+  var i = 0, dl = src.length, sl = src.length, pushImpl = (!!dst.push);
 
-  for (; i < l; i++) {
-    dst.push(src[i]);
+  if (pushImpl) {
+    for (; i < sl; i++) {
+      dst.push(src[i]);
+    }
+  } else {
+    for (; i < sl; i++) {
+      dst[dl + i] = src[i];
+    }
   }
 
-  return dst;
-}
-
-/**
- * 配列の先頭への結合を破壊的に行う
- * @param {Array} dst 結合先となる配列.
- * @param {Array} src 結合元となる配列.
- * @private
- */
-function unshift_(dst, src) {
-  var i = 0, l = src.length;
-
-  for (; i < l; i++) {
-    dst.unshift(src[l - i - 1]);
-  }
-
-  return dst;
+  return dst.length;
 }
 
 /**
