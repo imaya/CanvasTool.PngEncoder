@@ -1,5 +1,4 @@
 /**
- * canvastool.pngencoder.js
  * JavaScript PNG Encoder
  *
  * The MIT License
@@ -31,6 +30,15 @@
  */
 
 goog.provide('CanvasTool.PngEncoder');
+goog.provide('CanvasTool.PngEncoder.ChunkType');
+goog.provide('CanvasTool.PngEncoder.CompressionFlag');
+goog.provide('CanvasTool.PngEncoder.CompressionMethod');
+goog.provide('CanvasTool.PngEncoder.ColourType');
+goog.provide('CanvasTool.PngEncoder.FilterMethod');
+goog.provide('CanvasTool.PngEncoder.BasicFilterType');
+goog.provide('CanvasTool.PngEncoder.InterlaceMethod');
+goog.provide('CanvasTool.PngEncoder.RenderingIntent');
+goog.provide('CanvasTool.PngEncoder.UnitSpecifier');
 
 goog.require('Zlib');
 
