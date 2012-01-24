@@ -81,9 +81,14 @@ function random(compressionType) {
 	var inflateUint8Array;
 	var inflate = [];
 
+	var seed = (new Date()).getTime();
+	var mt = new MersenneTwister(seed);
+
+	G_testRunner.log("Seed: " + seed);
+
 	// make random data
 	for (var i = 0; i < LOOP; i++) {
-		testData[i] = Math.floor(Math.random() * 256);
+		testData[i] = mt.nextInt(256);
 	}
 	G_testRunner.log("Source Size: " + testData.length);
 
