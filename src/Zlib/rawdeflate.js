@@ -316,7 +316,6 @@ Lz77Match.prototype.toLz77Array = function() {
   // distance
   push(codeArray, this.getDistanceCode_(dist));
 
-
   return codeArray;
 };
 
@@ -329,118 +328,77 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
   var position, length, i, l,
       matchKey, matchKeyArray,
       table = this.matchTable,
-      longestMatch,
-      currentMatchList, matchList, matchIndex, matchLength, matchPosition,
+      matchList, longestMatch,
       lz77buf = [], skipLength = 0, lz77Array,
-      isDynamic, freqsLitLen = [], freqsDist = [];
+      freqsLitLen = [], freqsDist = [];
 
-  isDynamic = (this.compressionType === Zlib.Deflate.CompressionType.DYNAMIC);
+  // 初期化
+  for (i = 0; i <= 285; i++) { freqsLitLen[i] = 0; } // XXX: magic number
+  for (i = 0; i <= 29; i++) { freqsDist[i] = 0; } // XXX: magic number
+  freqsLitLen[256] = 1; // EOB の最低出現回数は 1
 
-  if (isDynamic) {
-    // XXX: magic number
-    for (i = 0; i <= 285; i++) {
-      freqsLitLen[i] = 0;
-    }
-    // XXX: magic number
-    for (i = 0; i <= 29; i++) {
-      freqsDist[i] = 0;
-    }
-
-    // EOB の最低出現回数は 1
-    freqsLitLen[256] = 1;
-  }
-
-
-  length = dataArray.length;
-  for (position = 0; position < length; position++) {
-    // 最小マッチ長分のキーを作成する
-    matchKeyArray =
-      slice(dataArray, position, Zlib.RawDeflate.Lz77MinLength);
-
-    // 終わりの方でもうマッチしようがない場合はそのまま流し込む
-    if (matchKeyArray.length < Zlib.RawDeflate.Lz77MinLength &&
-        skipLength === 0) {
-      push(lz77buf, matchKeyArray);
-
-      if (isDynamic) {
-        for (i = 0, l = matchKeyArray.length; i < l; i++) {
-          freqsLitLen[matchKeyArray[i]]++;
-        }
-      }
-
-      break;
-    }
-
-    // キーの作成
-    matchKey = 0;
-    for (i = 0, l = matchKeyArray.length; i < l; i++) {
+  // LZ77 符号化
+  for (position = 0, length = dataArray.length; position < length; position++) {
+    // ハッシュキーの作成
+    matchKeyArray = slice(dataArray, position, Zlib.RawDeflate.Lz77MinLength);
+    for (matchKey = 0, i = 0, l = matchKeyArray.length; i < l; i++) {
       matchKey = (matchKey << 8) | (matchKeyArray[i] & 0xff);
     }
 
     // テーブルが未定義だったら作成する
-    if (table[matchKey] === undefined) {
-      table[matchKey] = [];
-    }
+    if (table[matchKey] === undefined) { table[matchKey] = []; }
+    matchList = table[matchKey];
 
     // スキップだったら何もしない
     if (skipLength > 0) {
       skipLength--;
-    // テーブルが作成済みならば整理とマッチ処理を行う
+      matchList.push(position);
+      continue;
+    }
+
+    // データ末尾でマッチしようがない場合はそのまま流しこむ
+    if (matchKeyArray.length < Zlib.RawDeflate.Lz77MinLength) {
+      push(lz77buf, matchKeyArray);
+      for (i = 0, l = matchKeyArray.length; i < l; i++) {
+        freqsLitLen[matchKeyArray[i]]++;
+      }
+      break;
+    }
+
+    // マッチテーブルの更新 (最大戻り距離を超えているものを削除する)
+    while (matchList.length > 0 &&
+        position - matchList[0] > Zlib.RawDeflate.WindowSize) {
+      matchList.shift();
+    }
+
+    // マッチ候補が見つかった場合
+    if (matchList.length > 0) {
+      // 最長マッチの探索
+      longestMatch = this.searchLongestMatch_(dataArray, position, matchList);
+      lz77Array = longestMatch.toLz77Array();
+
+      // LZ77 符号化を行い結果に格納
+      push(lz77buf, lz77Array);
+      freqsLitLen[lz77Array[0]]++;
+      freqsDist[lz77Array[3]]++;
+
+      // 最長マッチの長さだけ進む
+      skipLength = longestMatch.length - 1;
+    // マッチがなかった場合はそのまま出力
     } else {
-      // マッチテーブルに存在する場合は最長となる候補を探す
-      matchList = table[matchKey];
-      currentMatchList = [];
-
-      // マッチテーブルの更新
-      matchLength = matchList.length;
-      for (matchIndex = 0; matchIndex < matchLength; matchIndex++) {
-        matchPosition = matchList[matchIndex];
-
-        // 最大戻り距離を超えていた場合は削除する
-        if (position - matchPosition > Zlib.RawDeflate.WindowSize) {
-          matchList.shift();
-          matchIndex--; matchLength--;
-          continue;
-        // 超えていなかった場合はそれ以上古いものはないので抜ける
-        } else {
-          break;
-        }
-      }
-
-      // マッチ候補が見つかった場合
-      if (matchList.length > 0) {
-        // 最長マッチの探索
-        longestMatch = this.searchLongestMatch_(dataArray, position, matchList);
-        lz77Array = longestMatch.toLz77Array();
-
-        // LZ77 符号化を行い結果に格納
-        push(lz77buf, lz77Array);
-        if (isDynamic) {
-          freqsLitLen[lz77Array[0]]++;
-          freqsDist[lz77Array[3]]++;
-        }
-
-        // 最長マッチの長さだけ進む
-        skipLength = longestMatch.length - 1;
-      } else {
-        if (isDynamic) {
-          freqsLitLen[dataArray[position]]++;
-        }
-        lz77buf.push(dataArray[position]);
-      }
+      lz77buf.push(dataArray[position]);
+      freqsLitLen[dataArray[position]]++;
     }
 
     // マッチテーブルに現在の位置を保存
-    table[matchKey].push(position);
+    matchList.push(position);
   }
 
-  // 終端コードの追加
-  if (isDynamic) {
-    freqsLitLen[256]++;
-    this.freqsLitLen = freqsLitLen;
-    this.freqsDist = freqsDist;
-  }
+  // 終端処理
   lz77buf.push(256);
+  freqsLitLen[256]++;
+  this.freqsLitLen = freqsLitLen;
+  this.freqsDist = freqsDist;
 
   return lz77buf;
 };
@@ -527,7 +485,7 @@ function(dataArray, position, matchList) {
     matchLength,
     position - Math.max.apply(this, lastMatch)
   );
-}
+};
 
 /**
  * Tree-Transmit Symbols の算出
