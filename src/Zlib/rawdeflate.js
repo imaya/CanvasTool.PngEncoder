@@ -25,7 +25,7 @@
  */
 
 /**
- * @fileoverview Deflate (RFC1951) •„†‰»ƒAƒ‹ƒSƒŠƒYƒ€À‘•.
+ * @fileoverview Deflate (RFC1951) ç¬¦å·åŒ–ã‚¢ãƒ«ã‚´ãƒªã‚ºãƒ å®Ÿè£….
  */
 
 goog.provide('Zlib.RawDeflate');
@@ -37,58 +37,65 @@ goog.require('Zlib.Util');
 goog.scope(function() {
 
 /**
- * Raw Deflate À‘•
+ * Raw Deflate å®Ÿè£…
  * @param {Zlib.Deflate.CompressionType} type CompressionType.
+ * @param {Object=} opt_param compression options.
  * @constructor
  */
-Zlib.RawDeflate = function(type) {
+Zlib.RawDeflate = function(type, opt_param) {
   this.compressionType = type;
-  this.matchTable = {};
+  this.lazy = 0;
   this.freqsLitLen = [];
   this.freqsDist = [];
+
+  if (typeof(opt_param) === 'object' && opt_param !== null) {
+    if (typeof(opt_param['lazy']) === 'number') {
+      this.lazy = opt_param['lazy'];
+    }
+  }
 };
 
-// Zlib.Util ‚ÌƒGƒCƒŠƒAƒX
+// Zlib.Util ã®ã‚¨ã‚¤ãƒªã‚¢ã‚¹
 var push = Zlib.Util.push;
 var slice = Zlib.Util.slice;
 
 /**
- * LZ77 ‚ÌÅ¬ƒ}ƒbƒ`’·
+ * LZ77 ã®æœ€å°ãƒãƒƒãƒé•·
  * @type {number}
  * @const
  */
 Zlib.RawDeflate.Lz77MinLength = 3;
 
 /**
- * LZ77 ‚ÌÅ‘åƒ}ƒbƒ`’·
+ * LZ77 ã®æœ€å¤§ãƒãƒƒãƒé•·
  * @type {number}
  * @const
  */
 Zlib.RawDeflate.Lz77MaxLength = 258;
 
 /**
- * LZ77 ‚ÌƒEƒBƒ“ƒhƒEƒTƒCƒY
+ * LZ77 ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚µã‚¤ã‚º
  * @type {number}
  * @const
  */
 Zlib.RawDeflate.WindowSize = 0x8000;
 
 /**
- * Å’·‚Ì•„†’·
+ * æœ€é•·ã®ç¬¦å·é•·
  * @type {number}
  * @const
  */
 Zlib.RawDeflate.MaxCodeLength = 16;
 
 /**
- * ƒnƒtƒ}ƒ“•„†‚ÌÅ‘å”’l
+ * ãƒãƒ•ãƒãƒ³ç¬¦å·ã®æœ€å¤§æ•°å€¤
  * @type {number}
  * @const
  */
 Zlib.RawDeflate.HUFMAX = 286;
 
 /**
- * ŒÅ’èƒnƒtƒ}ƒ“•„†‚Ì•„†‰»ƒe[ƒuƒ‹
+ * å›ºå®šãƒãƒ•ãƒãƒ³ç¬¦å·ã®ç¬¦å·åŒ–ãƒ†ãƒ¼ãƒ–ãƒ«
  * @type {Array.<Array.<number, number>>}
  * @const
  */
@@ -110,10 +117,10 @@ Zlib.RawDeflate.FixedHuffmanTable = (function() {
 })();
 
 /**
- * “®“Iƒnƒtƒ}ƒ“•„†‰»(ƒJƒXƒ^ƒ€ƒnƒtƒ}ƒ“ƒe[ƒuƒ‹)
- * @param {Array} dataArray LZ77 •„†‰»Ï‚İ byte array.
- * @param {Zlib.BitStream=} stream ‘‚«‚İ—pƒrƒbƒgƒXƒgƒŠ[ƒ€.
- * @return {Zlib.BitStream} ƒnƒtƒ}ƒ“•„†‰»Ï‚İƒrƒbƒgƒXƒgƒŠ[ƒ€ƒIƒuƒWƒFƒNƒg.
+ * å‹•çš„ãƒãƒ•ãƒãƒ³ç¬¦å·åŒ–(ã‚«ã‚¹ã‚¿ãƒ ãƒãƒ•ãƒãƒ³ãƒ†ãƒ¼ãƒ–ãƒ«)
+ * @param {Array} dataArray LZ77 ç¬¦å·åŒ–æ¸ˆã¿ byte array.
+ * @param {Zlib.BitStream=} stream æ›¸ãè¾¼ã¿ç”¨ãƒ“ãƒƒãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ .
+ * @return {Zlib.BitStream} ãƒãƒ•ãƒãƒ³ç¬¦å·åŒ–æ¸ˆã¿ãƒ“ãƒƒãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ.
  */
 Zlib.RawDeflate.prototype.dynamicHuffman =
 function(dataArray, litLen, dist, stream) {
@@ -129,14 +136,14 @@ function(dataArray, litLen, dist, stream) {
   distCodes = dist[0];
   distLengths = dist[1];
 
-  // •„†‚ğ BitStream ‚É‘‚«‚ñ‚Å‚¢‚­
+  // ç¬¦å·ã‚’ BitStream ã«æ›¸ãè¾¼ã‚“ã§ã„ã
   for (index = 0, length = dataArray.length; index < length; index++) {
     literal = dataArray[index];
 
     // literal or length
     stream.writeBits(litLenCodes[literal], litLenLengths[literal], true);
 
-    // ’·‚³E‹——£•„†
+    // é•·ã•ãƒ»è·é›¢ç¬¦å·
     if (literal > 256) {
       // length extra
       stream.writeBits(dataArray[++index], dataArray[++index], true);
@@ -148,7 +155,7 @@ function(dataArray, litLen, dist, stream) {
       );
       // distance extra
       stream.writeBits(dataArray[++index], dataArray[++index], true);
-    // I’[
+    // çµ‚ç«¯
     } else if (literal === 256) {
       break;
     }
@@ -158,10 +165,10 @@ function(dataArray, litLen, dist, stream) {
 };
 
 /**
- * ŒÅ’èƒnƒtƒ}ƒ“•„†‰»
- * @param {Array} dataArray LZ77 •„†‰»Ï‚İ byte array.
- * @param {Zlib.BitStream=} stream ‘‚«‚İ—pƒrƒbƒgƒXƒgƒŠ[ƒ€.
- * @return {Array} ƒnƒtƒ}ƒ“•„†‰»Ï‚İ byte array.
+ * å›ºå®šãƒãƒ•ãƒãƒ³ç¬¦å·åŒ–
+ * @param {Array} dataArray LZ77 ç¬¦å·åŒ–æ¸ˆã¿ byte array.
+ * @param {Zlib.BitStream=} stream æ›¸ãè¾¼ã¿ç”¨ãƒ“ãƒƒãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ .
+ * @return {Array} ãƒãƒ•ãƒãƒ³ç¬¦å·åŒ–æ¸ˆã¿ byte array.
  */
 Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
   var index, length, literal, code, bitlen, extra;
@@ -170,17 +177,17 @@ Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
     stream = new Zlib.BitStream();
   }
 
-  // •„†‚ğ BitStream ‚É‘‚«‚ñ‚Å‚¢‚­
+  // ç¬¦å·ã‚’ BitStream ã«æ›¸ãè¾¼ã‚“ã§ã„ã
   for (index = 0, length = dataArray.length; index < length; index++) {
     literal = dataArray[index];
 
-    // •„†‚Ì‘‚«‚İ
+    // ç¬¦å·ã®æ›¸ãè¾¼ã¿
     Zlib.BitStream.prototype.writeBits.apply(
       stream,
       Zlib.RawDeflate.FixedHuffmanTable[literal]
     );
 
-    // ’·‚³E‹——£•„†
+    // é•·ã•ãƒ»è·é›¢ç¬¦å·
     if (literal > 0x100) {
       // length extra
       stream.writeBits(dataArray[++index], dataArray[++index], true);
@@ -188,7 +195,7 @@ Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
       stream.writeBits(dataArray[++index], 5);
       // distance extra
       stream.writeBits(dataArray[++index], dataArray[++index], true);
-    // I’[
+    // çµ‚ç«¯
     } else if (literal === 0x100) {
       break;
     }
@@ -198,9 +205,9 @@ Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
 };
 
 /**
- * ƒ}ƒbƒ`î•ñ
- * @param {number} length ƒ}ƒbƒ`‚µ‚½’·‚³.
- * @param {number} backwordDistance ƒ}ƒbƒ`ˆÊ’u‚Æ‚Ì‹——£.
+ * ãƒãƒƒãƒæƒ…å ±
+ * @param {number} length ãƒãƒƒãƒã—ãŸé•·ã•.
+ * @param {number} backwordDistance ãƒãƒƒãƒä½ç½®ã¨ã®è·é›¢.
  * @constructor
  */
 function Lz77Match(length, backwordDistance) {
@@ -209,9 +216,9 @@ function Lz77Match(length, backwordDistance) {
 }
 
 /**
- * ’·‚³•„†ƒe[ƒuƒ‹
- * @param {number} length ’·‚³.
- * @return {Array.<number>} ƒR[ƒhAŠg’£ƒrƒbƒgAŠg’£ƒrƒbƒg’·‚Ì”z—ñ.
+ * é•·ã•ç¬¦å·ãƒ†ãƒ¼ãƒ–ãƒ«
+ * @param {number} length é•·ã•.
+ * @return {Array.<number>} ã‚³ãƒ¼ãƒ‰ã€æ‹¡å¼µãƒ“ãƒƒãƒˆã€æ‹¡å¼µãƒ“ãƒƒãƒˆé•·ã®é…åˆ—.
  * @private
  */
 Lz77Match.prototype.getLengthCode_ = function(length) {
@@ -254,9 +261,9 @@ Lz77Match.prototype.getLengthCode_ = function(length) {
 };
 
 /**
- * ‹——£•„†ƒe[ƒuƒ‹
- * @param {number} dist ‹——£.
- * @return {Array.<number>} ƒR[ƒhAŠg’£ƒrƒbƒgAŠg’£ƒrƒbƒg’·‚Ì”z—ñ.
+ * è·é›¢ç¬¦å·ãƒ†ãƒ¼ãƒ–ãƒ«
+ * @param {number} dist è·é›¢.
+ * @return {Array.<number>} ã‚³ãƒ¼ãƒ‰ã€æ‹¡å¼µãƒ“ãƒƒãƒˆã€æ‹¡å¼µãƒ“ãƒƒãƒˆé•·ã®é…åˆ—.
  * @private
  */
 Lz77Match.prototype.getDistanceCode_ = function(dist) {
@@ -300,10 +307,10 @@ Lz77Match.prototype.getDistanceCode_ = function(dist) {
 };
 
 /**
- * ƒ}ƒbƒ`î•ñ‚ğ LZ77 •„†‰»”z—ñ‚Å•Ô‚·.
- * ‚È‚¨A‚±‚±‚Å‚ÍˆÈ‰º‚Ì“à•”d—l‚Å•„†‰»‚µ‚Ä‚¢‚é
+ * ãƒãƒƒãƒæƒ…å ±ã‚’ LZ77 ç¬¦å·åŒ–é…åˆ—ã§è¿”ã™.
+ * ãªãŠã€ã“ã“ã§ã¯ä»¥ä¸‹ã®å†…éƒ¨ä»•æ§˜ã§ç¬¦å·åŒ–ã—ã¦ã„ã‚‹
  * [ CODE, EXTRA-BIT-LEN, EXTRA, CODE, EXTRA-BIT-LEN, EXTRA ]
- * @return {Array} LZ77 •„†‰» byte array.
+ * @return {Array} LZ77 ç¬¦å·åŒ– byte array.
  */
 Lz77Match.prototype.toLz77Array = function() {
   var length = this.length,
@@ -320,44 +327,80 @@ Lz77Match.prototype.toLz77Array = function() {
 };
 
 /**
- * LZ77 À‘•
- * @param {Array} dataArray LZ77 •„†‰»‚·‚éƒoƒCƒg”z—ñ.
- * @return {Array} LZ77 •„†‰»‚µ‚½”z—ñ.
+ * LZ77 å®Ÿè£…
+ * @param {Array} dataArray LZ77 ç¬¦å·åŒ–ã™ã‚‹ãƒã‚¤ãƒˆé…åˆ—.
+ * @return {Array} LZ77 ç¬¦å·åŒ–ã—ãŸé…åˆ—.
  */
 Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
-  var position, length, i, l,
-      matchKey, matchKeyArray,
-      table = this.matchTable,
-      matchList, longestMatch,
-      lz77buf = [], skipLength = 0, lz77Array,
-      freqsLitLen = [], freqsDist = [];
+  var position, // @type {number}
+      length, // @type {number}
+      i, // @type {number}
+      l, // @type {number}
+      matchKey, // @type {number}
+      matchKeyArray, // @type {Array.<number>}
+      table = {}, // @type {Object.<Array.<Array.<number>>>}
+      windowSize = Zlib.RawDeflate.WindowSize, // @const {number}
+      matchList, // @type {Array.<Array.<number>>}
+      longestMatch, // @type {Lz77Match}
+      prevMatch, // @type {Lz77Match}
+      lz77buf = [], // @type {Array.<number>}
+      skipLength = 0, // @type {number}
+      freqsLitLen = [], // @type {Array.<number>}
+      freqsDist = [], // @type {Array.<number>}
+      lazy = this.lazy; // @const
 
-  // ‰Šú‰»
-  for (i = 0; i <= 285; i++) { freqsLitLen[i] = 0; } // XXX: magic number
-  for (i = 0; i <= 29; i++) { freqsDist[i] = 0; } // XXX: magic number
-  freqsLitLen[256] = 1; // EOB ‚ÌÅ’áoŒ»‰ñ”‚Í 1
+  // åˆæœŸåŒ–
+  for (i = 0; i <= 285; i++) { freqsLitLen[i] = 0; }
+  for (i = 0; i <= 29; i++) { freqsDist[i] = 0; }
+  freqsLitLen[256] = 1; // EOB ã®æœ€ä½å‡ºç¾å›æ•°ã¯ 1
 
-  // LZ77 •„†‰»
+  /**
+   * ãƒãƒƒãƒãƒ‡ãƒ¼ã‚¿ã®æ›¸ãè¾¼ã¿
+   * @param {Lz77Match} match LZ77 Match data.
+   * @param {!number} offset ã‚¹ã‚­ãƒƒãƒ—é–‹å§‹ä½ç½®(ç›¸å¯¾æŒ‡å®š).
+   * @private
+   */
+  function writeMatch(match, offset) {
+    var lz77Array = match.toLz77Array();
+
+    push(lz77buf, lz77Array);
+    freqsLitLen[lz77Array[0]]++;
+    freqsDist[lz77Array[3]]++;
+    skipLength = match.length + offset - 1;
+
+    prevMatch = null;
+  }
+
+  // LZ77 ç¬¦å·åŒ–
   for (position = 0, length = dataArray.length; position < length; position++) {
-    // ƒnƒbƒVƒ…ƒL[‚Ìì¬
+    // ãƒãƒƒã‚·ãƒ¥ã‚­ãƒ¼ã®ä½œæˆ
     matchKeyArray = slice(dataArray, position, Zlib.RawDeflate.Lz77MinLength);
     for (matchKey = 0, i = 0, l = matchKeyArray.length; i < l; i++) {
       matchKey = (matchKey << 8) | (matchKeyArray[i] & 0xff);
     }
 
-    // ƒe[ƒuƒ‹‚ª–¢’è‹`‚¾‚Á‚½‚çì¬‚·‚é
+    // ãƒ†ãƒ¼ãƒ–ãƒ«ãŒæœªå®šç¾©ã ã£ãŸã‚‰ä½œæˆã™ã‚‹
     if (table[matchKey] === undefined) { table[matchKey] = []; }
     matchList = table[matchKey];
 
-    // ƒXƒLƒbƒv‚¾‚Á‚½‚ç‰½‚à‚µ‚È‚¢
+    // skip
     if (skipLength > 0) {
       skipLength--;
       matchList.push(position);
       continue;
     }
 
-    // ƒf[ƒ^––”ö‚Åƒ}ƒbƒ`‚µ‚æ‚¤‚ª‚È‚¢ê‡‚Í‚»‚Ì‚Ü‚Ü—¬‚µ‚±‚Ş
+    // ãƒãƒƒãƒãƒ†ãƒ¼ãƒ–ãƒ«ã®æ›´æ–° (æœ€å¤§æˆ»ã‚Šè·é›¢ã‚’è¶…ãˆã¦ã„ã‚‹ã‚‚ã®ã‚’å‰Šé™¤ã™ã‚‹)
+    while (matchList.length > 0 && position - matchList[0] > windowSize) {
+      matchList.shift();
+    }
+
+    // ãƒ‡ãƒ¼ã‚¿æœ«å°¾ã§ãƒãƒƒãƒã—ã‚ˆã†ãŒãªã„å ´åˆã¯ãã®ã¾ã¾æµã—ã“ã‚€
     if (matchKeyArray.length < Zlib.RawDeflate.Lz77MinLength) {
+      if (prevMatch instanceof Lz77Match) {
+        writeMatch(prevMatch, -1);
+      }
+
       push(lz77buf, matchKeyArray);
       for (i = 0, l = matchKeyArray.length; i < l; i++) {
         freqsLitLen[matchKeyArray[i]]++;
@@ -365,36 +408,34 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
       break;
     }
 
-    // ƒ}ƒbƒ`ƒe[ƒuƒ‹‚ÌXV (Å‘å–ß‚è‹——£‚ğ’´‚¦‚Ä‚¢‚é‚à‚Ì‚ğíœ‚·‚é)
-    while (matchList.length > 0 &&
-        position - matchList[0] > Zlib.RawDeflate.WindowSize) {
-      matchList.shift();
-    }
-
-    // ƒ}ƒbƒ`Œó•â‚ªŒ©‚Â‚©‚Á‚½ê‡
+    // ãƒãƒƒãƒå€™è£œã‹ã‚‰æœ€é•·ã®ã‚‚ã®ã‚’æ¢ã™
     if (matchList.length > 0) {
-      // Å’·ƒ}ƒbƒ`‚Ì’Tõ
       longestMatch = this.searchLongestMatch_(dataArray, position, matchList);
-      lz77Array = longestMatch.toLz77Array();
 
-      // LZ77 •„†‰»‚ğs‚¢Œ‹‰Ê‚ÉŠi”[
-      push(lz77buf, lz77Array);
-      freqsLitLen[lz77Array[0]]++;
-      freqsDist[lz77Array[3]]++;
-
-      // Å’·ƒ}ƒbƒ`‚Ì’·‚³‚¾‚¯i‚Ş
-      skipLength = longestMatch.length - 1;
-    // ƒ}ƒbƒ`‚ª‚È‚©‚Á‚½ê‡‚Í‚»‚Ì‚Ü‚Üo—Í
+      if (prevMatch instanceof Lz77Match) {
+        if (prevMatch.length < longestMatch.length) {
+          lz77buf.push(dataArray[position - 1]); // previous match
+          freqsLitLen[dataArray[position - 1]]++;
+          writeMatch(longestMatch, 0); // current match
+        } else {
+          writeMatch(prevMatch, -1); // previous match
+        }
+      } else if (longestMatch.length < lazy) {
+        prevMatch = longestMatch;
+      } else {
+        writeMatch(longestMatch, 0);
+      }
+    } else if (prevMatch instanceof Lz77Match) {
+      writeMatch(prevMatch, -1); // previous match
     } else {
       lz77buf.push(dataArray[position]);
       freqsLitLen[dataArray[position]]++;
     }
 
-    // ƒ}ƒbƒ`ƒe[ƒuƒ‹‚ÉŒ»İ‚ÌˆÊ’u‚ğ•Û‘¶
-    matchList.push(position);
+    matchList.push(position); // ãƒãƒƒãƒãƒ†ãƒ¼ãƒ–ãƒ«ã«ç¾åœ¨ã®ä½ç½®ã‚’ä¿å­˜
   }
 
-  // I’[ˆ—
+  // çµ‚ç«¯å‡¦ç†
   lz77buf.push(256);
   freqsLitLen[256]++;
   this.freqsLitLen = freqsLitLen;
@@ -404,11 +445,11 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
 };
 
 /**
- * ƒ}ƒbƒ`‚µ‚½Œó•â‚Ì’†‚©‚çÅ’·ˆê’v‚ğ’T‚·
- * @param {Object} dataArray Œ»İ‚ÌƒEƒBƒ“ƒhƒE.
- * @param {number} position Œ»İ‚ÌƒEƒBƒ“ƒhƒEˆÊ’u.
- * @param {Array.<number>} matchList Œó•â‚Æ‚È‚éˆÊ’u‚Ì”z—ñ.
- * @return {Lz77Match} Å’·‚©‚ÂÅ’Z‹——£‚Ìƒ}ƒbƒ`ƒIƒuƒWƒFƒNƒg.
+ * ãƒãƒƒãƒã—ãŸå€™è£œã®ä¸­ã‹ã‚‰æœ€é•·ä¸€è‡´ã‚’æ¢ã™
+ * @param {Object} dataArray ç¾åœ¨ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦.
+ * @param {number} position ç¾åœ¨ã®ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ä½ç½®.
+ * @param {Array.<number>} matchList å€™è£œã¨ãªã‚‹ä½ç½®ã®é…åˆ—.
+ * @return {Lz77Match} æœ€é•·ã‹ã¤æœ€çŸ­è·é›¢ã®ãƒãƒƒãƒã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ.
  * @private
  */
 Zlib.RawDeflate.prototype.searchLongestMatch_ =
@@ -422,7 +463,7 @@ function(dataArray, position, matchList) {
 
   matchLimit = Zlib.RawDeflate.Lz77MaxLength;
 
-  // Œó•â‚Ì’†‚©‚çÅ’·ƒ}ƒbƒ`‚Ì•¨‚ğ’T‚·
+  // å€™è£œã®ä¸­ã‹ã‚‰æœ€é•·ãƒãƒƒãƒã®ç‰©ã‚’æ¢ã™
   lastMatch = matchList;
   matchList = [];
   matchLength = minLength;
@@ -432,7 +473,7 @@ function(dataArray, position, matchList) {
     for (matchIndex = 0; matchIndex < matchListLength; matchIndex++) {
       match = lastMatch[matchIndex];
 
-      // Œã‚ë‚©‚ç”»’è
+      // å¾Œã‚ã‹ã‚‰åˆ¤å®š
       matchEqual = true;
       for (i = matchStep - 1; i >= 0; i--) {
         if (dataArray[lastMatch[matchIndex] + matchLength + i] !==
@@ -446,12 +487,12 @@ function(dataArray, position, matchList) {
       }
     }
 
-    // ƒ}ƒbƒ`Œó•â‚ª‚È‚­‚È‚Á‚½‚ç”²‚¯‚é
+    // ãƒãƒƒãƒå€™è£œãŒãªããªã£ãŸã‚‰æŠœã‘ã‚‹
     if (matchList.length === 0) {
       break;
     }
 
-    // ƒ}ƒbƒ`ƒŠƒXƒg‚ÌXV
+    // ãƒãƒƒãƒãƒªã‚¹ãƒˆã®æ›´æ–°
     lastMatch = matchList;
     matchList = [];
   }
@@ -459,7 +500,7 @@ function(dataArray, position, matchList) {
     matchLength--;
   }
 
-  // ‚Ó‚é‚¢‚ÉŠ|‚¯‚½Œó•â‚ğ¸¸‚·‚é
+  // ãµã‚‹ã„ã«æ›ã‘ãŸå€™è£œã‚’ç²¾æŸ»ã™ã‚‹
   matchList = [];
   for (i = 0; i < matchStep && matchLength < matchLimit; i++) {
     matchListLength = lastMatch.length;
@@ -480,7 +521,7 @@ function(dataArray, position, matchList) {
     matchList = [];
   }
 
-  // Å’·‚Ìƒ}ƒbƒ`Œó•â‚Ì’†‚Å‹——£‚ªÅ’Z‚Ì‚à‚Ì‚ğ‘I‚Ô(Šg’£ƒrƒbƒg‚ª’Z‚­Ï‚Ş)
+  // æœ€é•·ã®ãƒãƒƒãƒå€™è£œã®ä¸­ã§è·é›¢ãŒæœ€çŸ­ã®ã‚‚ã®ã‚’é¸ã¶(æ‹¡å¼µãƒ“ãƒƒãƒˆãŒçŸ­ãæ¸ˆã‚€)
   return new Lz77Match(
     matchLength,
     position - Math.max.apply(this, lastMatch)
@@ -488,12 +529,12 @@ function(dataArray, position, matchList) {
 };
 
 /**
- * Tree-Transmit Symbols ‚ÌZo
+ * Tree-Transmit Symbols ã®ç®—å‡º
  * reference: PuTTY Deflate implementation
  * @param {number} hlit HLIT.
- * @param {Array} litlenLengths ƒŠƒeƒ‰ƒ‹‚Æ’·‚³•„†‚Ì•„†’·”z—ñ.
+ * @param {Array} litlenLengths ãƒªãƒ†ãƒ©ãƒ«ã¨é•·ã•ç¬¦å·ã®ç¬¦å·é•·é…åˆ—.
  * @param {number} hdist HDIST.
- * @param {Array} distLengths ‹——£•„†‚Ì•„†’·”z—ñ.
+ * @param {Array} distLengths è·é›¢ç¬¦å·ã®ç¬¦å·é•·é…åˆ—.
  * @return {{codes: Array.<number>, freqs: Array.<number>}} Tree-Transmit
  *     Symbols.
  */
@@ -512,13 +553,13 @@ function(hlit, litlenLengths, hdist, distLengths) {
     src[j++] = distLengths[i];
   }
 
-  // ‰Šú‰»
-  // XXX: Uint8Array ‚Ìê‡‚Í‚±‚±‚Ì‰Šú‰»ˆ—‚ª—v‚ç‚È‚¢
+  // åˆæœŸåŒ–
+  // XXX: Uint8Array ã®å ´åˆã¯ã“ã“ã®åˆæœŸåŒ–å‡¦ç†ãŒè¦ã‚‰ãªã„
   for (i = 0, l = freqs.length; i < l; i++) {
     freqs[i] = 0;
   }
 
-  // •„†‰»
+  // ç¬¦å·åŒ–
   nResult = 0;
   for (i = 0, l = src.length; i < l; i += j) {
     // Run Length Encoding
@@ -527,7 +568,7 @@ function(hlit, litlenLengths, hdist, distLengths) {
     runLength = j;
 
     if (src[i] === 0) {
-      // 0 ‚ÌŒJ‚è•Ô‚µ‚ª 3 ‰ñ–¢–‚È‚ç‚Î‚»‚Ì‚Ü‚Ü
+      // 0 ã®ç¹°ã‚Šè¿”ã—ãŒ 3 å›æœªæº€ãªã‚‰ã°ãã®ã¾ã¾
       if (runLength < 3) {
         while (runLength-- > 0) {
           result[nResult++] = 0;
@@ -535,19 +576,19 @@ function(hlit, litlenLengths, hdist, distLengths) {
         }
       } else {
         while (runLength > 0) {
-          // ŒJ‚è•Ô‚µ‚ÍÅ‘å 138 ‚Ü‚Å‚È‚Ì‚ÅØ‚è‹l‚ß‚é
+          // ç¹°ã‚Šè¿”ã—ã¯æœ€å¤§ 138 ã¾ã§ãªã®ã§åˆ‡ã‚Šè©°ã‚ã‚‹
           rpt = (runLength < 138 ? runLength : 138);
 
           if (rpt > runLength - 3 && rpt < runLength) {
             rpt = runLength - 3;
           }
 
-          // 3-10 ‰ñ -> 17
+          // 3-10 å› -> 17
           if (rpt <= 10) {
             result[nResult++] = 17;
             result[nResult++] = rpt - 3;
             freqs[17]++;
-          // 11-138 ‰ñ -> 18
+          // 11-138 å› -> 18
           } else {
             result[nResult++] = 18;
             result[nResult++] = rpt - 11;
@@ -562,16 +603,16 @@ function(hlit, litlenLengths, hdist, distLengths) {
       freqs[src[i]]++;
       runLength--;
 
-      // ŒJ‚è•Ô‚µ‰ñ”‚ª3‰ñ–¢–‚È‚ç‚Îƒ‰ƒ“ƒŒƒ“ƒOƒX•„†‚Í—v‚ç‚È‚¢
+      // ç¹°ã‚Šè¿”ã—å›æ•°ãŒ3å›æœªæº€ãªã‚‰ã°ãƒ©ãƒ³ãƒ¬ãƒ³ã‚°ã‚¹ç¬¦å·ã¯è¦ã‚‰ãªã„
       if (runLength < 3) {
         while (runLength-- > 0) {
           result[nResult++] = src[i];
           freqs[src[i]]++;
         }
-      // 3 ‰ñˆÈã‚È‚ç‚Îƒ‰ƒ“ƒŒƒ“ƒOƒX•„†‰»
+      // 3 å›ä»¥ä¸Šãªã‚‰ã°ãƒ©ãƒ³ãƒ¬ãƒ³ã‚°ã‚¹ç¬¦å·åŒ–
       } else {
         while (runLength > 0) {
-          // runLength‚ğ 3-6 ‚Å•ªŠ„
+          // runLengthã‚’ 3-6 ã§åˆ†å‰²
           rpt = (runLength < 6 ? runLength : 6);
 
           if (rpt > runLength - 3 && rpt < runLength) {
@@ -592,11 +633,11 @@ function(hlit, litlenLengths, hdist, distLengths) {
 };
 
 /**
- * ƒnƒtƒ}ƒ“•„†‚Ì’·‚³‚ğæ“¾‚·‚é
+ * ãƒãƒ•ãƒãƒ³ç¬¦å·ã®é•·ã•ã‚’å–å¾—ã™ã‚‹
  * reference: PuTTY Deflate implementation
- * @param {Array} freqs oŒ»ƒJƒEƒ“ƒg.
- * @param {number=} opt_limit •„†’·‚Ì§ŒÀ.
- * @return {Array.<number>} •„†’·”z—ñ.
+ * @param {Array} freqs å‡ºç¾ã‚«ã‚¦ãƒ³ãƒˆ.
+ * @param {number=} opt_limit ç¬¦å·é•·ã®åˆ¶é™.
+ * @return {Array.<number>} ç¬¦å·é•·é…åˆ—.
  * @private
  */
 Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
@@ -611,7 +652,7 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
       maxProb, smallestFreq = 0xffffffff, totalFreq,
       num, denom, adjust;
 
-  // 0 ‚Ì—v‘f‚ğ’²‚×‚é, Å¬oŒ»”‚ğ’²‚×‚é, ‡ŒvoŒ»”‚ğ’²‚×‚é
+  // 0 ã®è¦ç´ ã‚’èª¿ã¹ã‚‹, æœ€å°å‡ºç¾æ•°ã‚’èª¿ã¹ã‚‹, åˆè¨ˆå‡ºç¾æ•°ã‚’èª¿ã¹ã‚‹
   for (i = 0; i < nSymbols; i++) {
     if (freqs[i] === 0) {
       freqsZero.push(i);
@@ -623,28 +664,28 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
     }
   }
 
-  // ”ñ 0 ‚Ì—v‘f‚ª 2 ‚æ‚è¬‚³‚©‚Á‚½‚ç 2 ‚É‚È‚é‚Ü‚Å 1 ‚Å–„‚ß‚é
+  // é 0 ã®è¦ç´ ãŒ 2 ã‚ˆã‚Šå°ã•ã‹ã£ãŸã‚‰ 2 ã«ãªã‚‹ã¾ã§ 1 ã§åŸ‹ã‚ã‚‹
   for (i = 0; nSymbols - freqsZero.length < 2; i++) {
     freqs[freqsZero.shift()] = 1;
   }
 
-  // limit ‚ªŒˆ‚Ü‚Á‚Ä‚¢‚éê‡‚Í’²®‚·‚é
+  // limit ãŒæ±ºã¾ã£ã¦ã„ã‚‹å ´åˆã¯èª¿æ•´ã™ã‚‹
   if ((opt_limit | 0) > 0) {
     totalFreq = 0;
 
-    // ˆø”ƒ`ƒFƒbƒN
+    // å¼•æ•°ãƒã‚§ãƒƒã‚¯
     if (opt_limit !== 7 && opt_limit !== 15) {
       throw 'invalid limit number';
     }
 
-    // ’²®—pƒpƒ‰ƒ[ƒ^‚ÌZo
+    // èª¿æ•´ç”¨ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã®ç®—å‡º
     maxProb = (opt_limit === 15) ? 2584 : 55;
     nActiveSymbols = nSymbols - freqsZero.length;
     num = totalFreq - smallestFreq * maxProb;
     denom = maxProb - nActiveSymbols;
     adjust = ((num + denom - 1) / denom) | 0;
 
-    // ”ñ 0 —v‘f‚Ì’l‚ğ’²®‚·‚é
+    // é 0 è¦ç´ ã®å€¤ã‚’èª¿æ•´ã™ã‚‹
     for (i = 0; i < nSymbols; i++) {
       if (freqs[i] !== 0) {
         freqs[i] += adjust;
@@ -652,21 +693,21 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
     }
   }
 
-  // ”z—ñ‚Ì‰Šú‰»
+  // é…åˆ—ã®åˆæœŸåŒ–
   for (i = 0; i < max; i++) {
     parent[i] = 0;
     length[i] = 0;
   }
 
-  // ƒq[ƒv‚Ì\’z
+  // ãƒ’ãƒ¼ãƒ—ã®æ§‹ç¯‰
   for (i = 0; i < nSymbols; i++) {
     if (freqs[i] > 0) {
       heap.push(i, freqs[i]);
     }
   }
 
-  // ƒnƒtƒ}ƒ“–Ø‚Ì\’z
-  // ƒm[ƒh‚ğ2‚Âæ‚èA‚»‚Ì’l‚Ì‡Œv‚ğƒq[ƒv‚ğ–ß‚µ‚Ä‚¢‚­‚±‚Æ‚Åƒnƒtƒ}ƒ“–Ø‚É‚È‚é
+  // ãƒãƒ•ãƒãƒ³æœ¨ã®æ§‹ç¯‰
+  // ãƒãƒ¼ãƒ‰ã‚’2ã¤å–ã‚Šã€ãã®å€¤ã®åˆè¨ˆã‚’ãƒ’ãƒ¼ãƒ—ã‚’æˆ»ã—ã¦ã„ãã“ã¨ã§ãƒãƒ•ãƒãƒ³æœ¨ã«ãªã‚‹
   for (i = Zlib.RawDeflate.HUFMAX; heap.length > 2; i++) {
     node1 = heap.pop();
     node2 = heap.pop();
@@ -675,7 +716,7 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
     heap.push(i, node1.value + node2.value);
   }
 
-  // ƒnƒtƒ}ƒ“–Ø‚©‚ç•„†’·‚É•ÏŠ·‚·‚é
+  // ãƒãƒ•ãƒãƒ³æœ¨ã‹ã‚‰ç¬¦å·é•·ã«å¤‰æ›ã™ã‚‹
   for (; i >= 0; i--) {
     if (parent[i] > 0) {
       length[i] = 1 + length[parent[i]];
@@ -686,10 +727,10 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
 };
 
 /**
- * •„†’·”z—ñ‚©‚çƒnƒtƒ}ƒ“•„†‚ğæ“¾‚·‚é
+ * ç¬¦å·é•·é…åˆ—ã‹ã‚‰ãƒãƒ•ãƒãƒ³ç¬¦å·ã‚’å–å¾—ã™ã‚‹
  * reference: PuTTY Deflate implementation
- * @param {Array} lengths •„†’·”z—ñ.
- * @return {Array} ƒnƒtƒ}ƒ“•„†”z—ñ.
+ * @param {Array} lengths ç¬¦å·é•·é…åˆ—.
+ * @return {Array} ãƒãƒ•ãƒãƒ³ç¬¦å·é…åˆ—.
  * @private
  */
 Zlib.RawDeflate.prototype.getCodesFromLengths_ = function(lengths) {

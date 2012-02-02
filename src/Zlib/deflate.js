@@ -25,8 +25,8 @@
  */
 
 /**
- * @fileoverview Deflate (RFC1951) À‘•.
- * DeflateƒAƒ‹ƒSƒŠƒYƒ€–{‘Ì‚Í Zlib.RawDeflate ‚ÅÀ‘•‚³‚ê‚Ä‚¢‚é.
+ * @fileoverview Deflate (RFC1951) å®Ÿè£….
+ * Deflateã‚¢ãƒ«ã‚´ãƒªã‚ºãƒ æœ¬ä½“ã¯ Zlib.RawDeflate ã§å®Ÿè£…ã•ã‚Œã¦ã„ã‚‹.
  */
 
 goog.provide('Zlib.Deflate');
@@ -48,14 +48,14 @@ goog.scope(function() {
  */
 Zlib.Deflate = function(buffer, opt_params) {
   /**
-   * Deflate •„†‰»‘ÎÛ‚Ìƒoƒbƒtƒ@
+   * Deflate ç¬¦å·åŒ–å¯¾è±¡ã®ãƒãƒƒãƒ•ã‚¡
    * @type {Array|Uint8Array}
    */
   this.buffer = buffer;
 
   /**
-   * ˆ³kƒ^ƒCƒv(”ñˆ³k, ŒÅ’èƒnƒtƒ}ƒ“•„†, “®“Iƒnƒtƒ}ƒ“•„†)
-   * ƒfƒtƒHƒ‹ƒg‚Å‚Í“®“Iƒnƒtƒ}ƒ“•„†‚ªg—p‚³‚ê‚é.
+   * åœ§ç¸®ã‚¿ã‚¤ãƒ—(éåœ§ç¸®, å›ºå®šãƒãƒ•ãƒãƒ³ç¬¦å·, å‹•çš„ãƒãƒ•ãƒãƒ³ç¬¦å·)
+   * ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã§ã¯å‹•çš„ãƒãƒ•ãƒãƒ³ç¬¦å·ãŒä½¿ç”¨ã•ã‚Œã‚‹.
    * @type {Zlib.Deflate.CompressionType}
    */
   this.compressionType = Zlib.Deflate.CompressionType.DYNAMIC;
@@ -67,14 +67,14 @@ Zlib.Deflate = function(buffer, opt_params) {
   }
 
   /**
-   * Deflate ƒAƒ‹ƒSƒŠƒYƒ€À‘•
+   * Deflate ã‚¢ãƒ«ã‚´ãƒªã‚ºãƒ å®Ÿè£…
    * @type {Zlib.RawDeflate}
    */
   this.rawDeflate = new Zlib.RawDeflate(this.compressionType);
 
 };
 
-// Zlib.Util ‚ÌƒGƒCƒŠƒAƒX
+// Zlib.Util ã®ã‚¨ã‚¤ãƒªã‚¢ã‚¹
 var push = Zlib.Util.push;
 var slice = Zlib.Util.slice;
 var convertNetworkByteOrder = Zlib.Util.convertNetworkByteOrder;
@@ -90,7 +90,7 @@ Zlib.Deflate.CompressionType = {
 };
 
 /**
- * ’¼Úˆ³k‚ÉŠ|‚¯‚é
+ * ç›´æ¥åœ§ç¸®ã«æ›ã‘ã‚‹
  * @param {!Array|Uint8Array} buffer Data.
  * @param {{compressionType: Zlib.Deflate.CompressionType}=} opt_params
  *     parameters.
@@ -155,20 +155,28 @@ Zlib.Deflate.prototype.compress = function() {
 };
 
 /**
- * deflate ˆ³k‚ğs‚¤
- * @return {Array} ˆ³kÏ‚İ byte array.
+ * deflate åœ§ç¸®ã‚’è¡Œã†
+ * @return {Array} åœ§ç¸®æ¸ˆã¿ byte array.
  */
 Zlib.Deflate.prototype.makeBlocks = function() {
   var blocks = [], blockArray, position, length;
 
+  // ãƒãƒƒãƒ•ã‚¡ãŒ string ã ã£ãŸã‚‰ array ã«å¤‰æ›
   if (typeof this.buffer === 'string') {
-    this.buffer =
-      this.buffer.split('').map(function(c) { return c.charCodeAt(0); });
+    this.buffer = (function(str) {
+      var tmp = str.split(''), i, l;
+
+      for (i = 0, l = tmp.length; i < l; i++) {
+        tmp[i] = tmp[i].charCodeAt(0);
+      }
+
+      return tmp;
+    })(this.buffer);
   }
 
   switch (this.compressionType) {
     case Zlib.Deflate.CompressionType.NONE:
-      // ƒuƒƒbƒN‚Ìì¬
+      // ãƒ–ãƒ­ãƒƒã‚¯ã®ä½œæˆ
       for (position = 0, length = this.buffer.length; position < length;) {
         blockArray = slice(this.buffer, position, 0xffff);
 
@@ -202,10 +210,10 @@ Zlib.Deflate.prototype.makeBlocks = function() {
 };
 
 /**
- * ”ñˆ³kƒuƒƒbƒN‚Ìì¬
- * @param {Array} blockArray ƒuƒƒbƒNƒf[ƒ^ byte array.
- * @param {boolean} isFinalBlock ÅŒã‚ÌƒuƒƒbƒN‚È‚ç‚Îtrue.
- * @return {Array} ”ñˆ³kƒuƒƒbƒN byte array.
+ * éåœ§ç¸®ãƒ–ãƒ­ãƒƒã‚¯ã®ä½œæˆ
+ * @param {Array} blockArray ãƒ–ãƒ­ãƒƒã‚¯ãƒ‡ãƒ¼ã‚¿ byte array.
+ * @param {boolean} isFinalBlock æœ€å¾Œã®ãƒ–ãƒ­ãƒƒã‚¯ãªã‚‰ã°true.
+ * @return {Array} éåœ§ç¸®ãƒ–ãƒ­ãƒƒã‚¯ byte array.
  */
 Zlib.Deflate.prototype.makeNocompressBlock =
 function(blockArray, isFinalBlock) {
@@ -232,10 +240,10 @@ function(blockArray, isFinalBlock) {
 };
 
 /**
- * ŒÅ’èƒnƒtƒ}ƒ“ƒuƒƒbƒN‚Ìì¬
- * @param {Array} blockArray ƒuƒƒbƒNƒf[ƒ^ byte array.
- * @param {boolean} isFinalBlock ÅŒã‚ÌƒuƒƒbƒN‚È‚ç‚Îtrue.
- * @return {Array} ŒÅ’èƒnƒtƒ}ƒ“•„†‰»ƒuƒƒbƒN byte array.
+ * å›ºå®šãƒãƒ•ãƒãƒ³ãƒ–ãƒ­ãƒƒã‚¯ã®ä½œæˆ
+ * @param {Array} blockArray ãƒ–ãƒ­ãƒƒã‚¯ãƒ‡ãƒ¼ã‚¿ byte array.
+ * @param {boolean} isFinalBlock æœ€å¾Œã®ãƒ–ãƒ­ãƒƒã‚¯ãªã‚‰ã°true.
+ * @return {Array} å›ºå®šãƒãƒ•ãƒãƒ³ç¬¦å·åŒ–ãƒ–ãƒ­ãƒƒã‚¯ byte array.
  */
 Zlib.Deflate.prototype.makeFixedHuffmanBlock =
 function(blockArray, isFinalBlock) {
@@ -256,10 +264,10 @@ function(blockArray, isFinalBlock) {
 };
 
 /**
- * “®“Iƒnƒtƒ}ƒ“ƒuƒƒbƒN‚Ìì¬
- * @param {Array} blockArray ƒuƒƒbƒNƒf[ƒ^ byte array.
- * @param {boolean} isFinalBlock ÅŒã‚ÌƒuƒƒbƒN‚È‚ç‚Îtrue.
- * @return {Array} “®“Iƒnƒtƒ}ƒ“•„†ƒuƒƒbƒN byte array.
+ * å‹•çš„ãƒãƒ•ãƒãƒ³ãƒ–ãƒ­ãƒƒã‚¯ã®ä½œæˆ
+ * @param {Array} blockArray ãƒ–ãƒ­ãƒƒã‚¯ãƒ‡ãƒ¼ã‚¿ byte array.
+ * @param {boolean} isFinalBlock æœ€å¾Œã®ãƒ–ãƒ­ãƒƒã‚¯ãªã‚‰ã°true.
+ * @return {Array} å‹•çš„ãƒãƒ•ãƒãƒ³ç¬¦å·ãƒ–ãƒ­ãƒƒã‚¯ byte array.
  */
 Zlib.Deflate.prototype.makeDynamicHuffmanBlock =
 function(blockArray, isFinalBlock) {
@@ -283,13 +291,13 @@ function(blockArray, isFinalBlock) {
   deflate = this.rawDeflate;
   data = deflate.lz77(blockArray);
 
-  // ƒŠƒeƒ‰ƒ‹E’·‚³, ‹——£‚Ìƒnƒtƒ}ƒ“•„†‚Æ•„†’·‚ÌZo
+  // ãƒªãƒ†ãƒ©ãƒ«ãƒ»é•·ã•, è·é›¢ã®ãƒãƒ•ãƒãƒ³ç¬¦å·ã¨ç¬¦å·é•·ã®ç®—å‡º
   litLenLengths = deflate.getLengths_(deflate.freqsLitLen);
   litLenCodes = deflate.getCodesFromLengths_(litLenLengths);
   distLengths = deflate.getLengths_(deflate.freqsDist);
   distCodes = deflate.getCodesFromLengths_(distLengths);
 
-  // HLIT, HDIST ‚ÌŒˆ’è
+  // HLIT, HDIST ã®æ±ºå®š
   for (hlit = 286; hlit > 257 && litLenLengths[hlit - 1] === 0; hlit--) {}
   for (hdist = 30; hdist > 1 && distLengths[hdist - 1] === 0; hdist--) {}
 
@@ -305,7 +313,7 @@ function(blockArray, isFinalBlock) {
   codeLengths = deflate.getLengths_(treeSymbols.freqs);
   codeCodes = deflate.getCodesFromLengths_(codeLengths);
 
-  // o—Í
+  // å‡ºåŠ›
   stream.writeBits(hlit - 257, 5, true);
   stream.writeBits(hdist - 1, 5, true);
   stream.writeBits(hclen - 4, 4, true);
@@ -313,7 +321,7 @@ function(blockArray, isFinalBlock) {
     stream.writeBits(transLengths[i], 3, true);
   }
 
-  // ƒcƒŠ[‚Ìo—Í
+  // ãƒ„ãƒªãƒ¼ã®å‡ºåŠ›
   for (i = 0, l = treeSymbols.codes.length; i < l; i++) {
     code = treeSymbols.codes[i];
 
