@@ -586,7 +586,6 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
     freqsLitLen[lz77Array[0]]++;
     freqsDist[lz77Array[3]]++;
     skipLength = match.length + offset - 1;
-
     prevMatch = null;
   }
 
@@ -595,7 +594,7 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
     // ハッシュキーの作成
     matchKeyArray = slice(dataArray, position, Zlib.RawDeflate.Lz77MinLength);
     for (matchKey = 0, i = 0, l = matchKeyArray.length; i < l; i++) {
-      matchKey = (matchKey << 8) | (matchKeyArray[i] & 0xff);
+      matchKey = ((matchKey << 8) | (matchKeyArray[i] & 0xff)) >>> 0;
     }
 
     // テーブルが未定義だったら作成する
@@ -665,86 +664,55 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
 
 /**
  * マッチした候補の中から最長一致を探す
- * @param {Object} dataArray 現在のウィンドウ.
- * @param {number} position 現在のウィンドウ位置.
- * @param {Array.<number>} matchList 候補となる位置の配列.
- * @return {Lz77Match} 最長かつ最短距離のマッチオブジェクト.
+ * @param {!Object} data plain data byte array.
+ * @param {!number} position plain data byte array position.
+ * @param {!Array.<number>} matchList 候補となる位置の配列.
+ * @return {!Lz77Match} 最長かつ最短距離のマッチオブジェクト.
  * @private
  */
 Zlib.RawDeflate.prototype.searchLongestMatch_ =
-function(dataArray, position, matchList) {
-  var lastMatch,
-      matchTarget,
-      matchLength, matchLimit,
-      match, matchIndex, matchListLength,
-      minLength = Zlib.RawDeflate.Lz77MinLength,
-      matchStep = 8, i, matchEqual;
+function(data, position, matchList) {
+  var  match,
+       currentMatch,
+       matchMax = 0, matchLength,
+       i, j, l, dl = data.length;
 
-  matchLimit = Zlib.RawDeflate.Lz77MaxLength;
+  // 候補を後ろから 1 つずつ絞り込んでゆく
+  permatch:
+  for (i = 0, l = matchList.length; i < l; i++) {
+    match = matchList[l - i - 1];
+    matchLength = Zlib.RawDeflate.Lz77MinLength;
 
-  // 候補の中から最長マッチの物を探す
-  lastMatch = matchList;
-  matchList = [];
-  matchLength = minLength;
-  for (; matchLength < matchLimit; matchLength += matchStep) {
-    matchListLength = lastMatch.length;
-
-    for (matchIndex = 0; matchIndex < matchListLength; matchIndex++) {
-      match = lastMatch[matchIndex];
-
-      // 後ろから判定
-      matchEqual = true;
-      for (i = matchStep - 1; i >= 0; i--) {
-        if (dataArray[lastMatch[matchIndex] + matchLength + i] !==
-            dataArray[position + matchLength + i]) {
-          matchEqual = false;
-          break;
+    // 前回までの最長一致を末尾から一致検索する
+    if (matchMax > Zlib.RawDeflate.Lz77MinLength) {
+      for (j = matchMax; j > Zlib.RawDeflate.Lz77MinLength; j--) {
+        if (data[match + j - 1] !== data[position + j - 1]) {
+          continue permatch;
         }
       }
-      if (matchEqual) {
-        matchList.push(match);
-      }
+      matchLength = matchMax;
     }
 
-    // マッチ候補がなくなったら抜ける
-    if (matchList.length === 0) {
+    // 最長一致探索
+    while(matchLength < Zlib.RawDeflate.Lz77MaxLength &&
+          position + matchLength < dl &&
+          data[match + matchLength] === data[position + matchLength]) {
+      matchLength++;
+    }
+
+    // マッチ長が同じ場合は後方を優先
+    if (matchLength > matchMax) {
+      currentMatch = match;
+      matchMax = matchLength;
+    }
+
+    // 最長が確定したら後の処理は省略
+    if (matchLength === Zlib.RawDeflate.Lz77MaxLength) {
       break;
     }
-
-    // マッチリストの更新
-    lastMatch = matchList;
-    matchList = [];
-  }
- if (matchLength > minLength) {
-    matchLength--;
   }
 
-  // ふるいに掛けた候補を精査する
-  matchList = [];
-  for (i = 0; i < matchStep && matchLength < matchLimit; i++) {
-    matchListLength = lastMatch.length;
-
-    for (matchIndex = 0; matchIndex < matchListLength; matchIndex++) {
-      if (dataArray[lastMatch[matchIndex] + matchLength] ===
-          dataArray[position + matchLength]) {
-        matchList.push(lastMatch[matchIndex]);
-      }
-    }
-
-    if (matchList.length === 0) {
-      break;
-    }
-
-    matchLength++;
-    lastMatch = matchList;
-    matchList = [];
-  }
-
-  // 最長のマッチ候補の中で距離が最短のものを選ぶ(拡張ビットが短く済む)
-  return new Lz77Match(
-    matchLength,
-    position - Math.max.apply(this, lastMatch)
-  );
+  return new Lz77Match(matchMax, position - currentMatch);
 };
 
 /**
@@ -868,7 +836,7 @@ Zlib.RawDeflate.prototype.getLengths_ = function(freqs, opt_limit) {
       length = new Array(max),
       i, node1, node2,
       freqsZero = [],
-      maxProb, smallestFreq = 0xffffffff, totalFreq,
+      maxProb, smallestFreq = Infinity, totalFreq,
       num, denom, adjust;
 
   // 0 の要素を調べる, 最小出現数を調べる, 合計出現数を調べる
