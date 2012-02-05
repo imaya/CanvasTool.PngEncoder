@@ -39,9 +39,9 @@ Zlib.Util = {};
 
 /**
  * make network byte order byte array from integer
- * @param {number} number source number.
- * @param {number=} size array size.
- * @return {Array} network byte order array.
+ * @param {!number} number source number.
+ * @param {!number=} size array size.
+ * @return {!Array} network byte order array.
  */
 Zlib.Util.convertNetworkByteOrder = function(number, size) {
   var tmp = [], octet, nullchar;
@@ -65,10 +65,10 @@ Zlib.Util.convertNetworkByteOrder = function(number, size) {
 
 /**
  * 配列風のオブジェクトの部分コピー
- * @param {Array|Uint8Array} arraylike 配列風オブジェクト.
- * @param {number} start コピー開始インデックス.
- * @param {number} length コピーする長さ.
- * @return {Array} 部分コピーした配列.
+ * @param {!(Array|Uint8Array)} arraylike 配列風オブジェクト.
+ * @param {!number} start コピー開始インデックス.
+ * @param {!number} length コピーする長さ.
+ * @return {!Array} 部分コピーした配列.
  */
 Zlib.Util.slice = function(arraylike, start, length) {
   var result, arraylength = arraylike.length;
@@ -92,9 +92,9 @@ Zlib.Util.slice = function(arraylike, start, length) {
 /**
  * 配列風のオブジェクトの結合
  * 結合先の配列に結合元の配列を追加します.
- * @param {Array|Uint8Array} dst 結合先配列.
- * @param {Array|Uint8Array} src 結合元配列.
- * @return {number} 結合後の配列サイズ.
+ * @param {!(Array|Uint8Array)} dst 結合先配列.
+ * @param {!(Array|Uint8Array)} src 結合元配列.
+ * @return {!number} 結合後の配列サイズ.
  */
 Zlib.Util.push = function(dst, src) {
   var i = 0, dl = src.length, sl = src.length, pushImpl = (!!dst.push);
@@ -111,6 +111,23 @@ Zlib.Util.push = function(dst, src) {
 
   return dst.length;
 }
+
+/**
+ * Byte String から Byte Array に変換.
+ * @param {!string} str byte string.
+ * @return {!Array.<number>} byte array.
+ */
+Zlib.Util.stringToByteArray = function(str) {
+  /** @type {!Array.<(string|number)>} */
+  var tmp = str.split('');
+  var i, l;
+
+  for (i = 0, l = tmp.length; i < l; i++) {
+    tmp[i] = (tmp[i].charCodeAt(0) & 0xff) >>> 0;
+  }
+
+  return tmp;
+};
 
 // end of scope
 });

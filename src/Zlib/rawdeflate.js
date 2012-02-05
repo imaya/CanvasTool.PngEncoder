@@ -29,6 +29,13 @@
  */
 
 goog.provide('Zlib.RawDeflate');
+goog.provide('Zlib.RawDeflate.CompressionType');
+goog.provide('Zlib.RawDeflate.Lz77MinLength');
+goog.provide('Zlib.RawDeflate.Lz77MaxLength');
+goog.provide('Zlib.RawDeflate.WindowSize');
+goog.provide('Zlib.RawDeflate.MaxCodeLength');
+goog.provide('Zlib.RawDeflate.HUFMAX');
+goog.provide('Zlib.RawDeflate.FixedHuffmanTable');
 
 goog.require('Zlib.BitStream');
 goog.require('Zlib.Heap');
@@ -38,19 +45,22 @@ goog.scope(function() {
 
 /**
  * Raw Deflate 実装
- * @param {Zlib.Deflate.CompressionType} type CompressionType.
  * @param {Object=} opt_param compression options.
  * @constructor
  */
-Zlib.RawDeflate = function(type, opt_param) {
-  this.compressionType = type;
+Zlib.RawDeflate = function(opt_param) {
+  this.compressionType = Zlib.RawDeflate.CompressionType.DYNAMIC;
   this.lazy = 0;
   this.freqsLitLen = [];
   this.freqsDist = [];
 
+  // option parameters
   if (typeof(opt_param) === 'object' && opt_param !== null) {
-    if (typeof(opt_param['lazy']) === 'number') {
+    if (typeof(opt_param.lazy) === 'number') {
       this.lazy = opt_param['lazy'];
+    }
+    if (typeof(opt_param.compressionType) === 'number') {
+      this.compressionType = opt_param.compressionType;
     }
   }
 };
@@ -58,6 +68,17 @@ Zlib.RawDeflate = function(type, opt_param) {
 // Zlib.Util のエイリアス
 var push = Zlib.Util.push;
 var slice = Zlib.Util.slice;
+
+/**
+ * @enum {number}
+ */
+Zlib.RawDeflate.CompressionType = {
+  NONE: 0,
+  FIXED: 1,
+  DYNAMIC: 2,
+  RESERVED: 3
+};
+
 
 /**
  * LZ77 の最小マッチ長
@@ -117,10 +138,204 @@ Zlib.RawDeflate.FixedHuffmanTable = (function() {
 })();
 
 /**
+ * DEFLATE ブロックの作成
+ * @param {!(Array.<number>|Uint8Array|string)} data plain data byte array / byte string.
+ * @return {!Array} 圧縮済み byte array.
+ */
+Zlib.RawDeflate.prototype.makeBlocks = function(data) {
+  var blocks = [], blockArray, position, length;
+
+  // バッファが string だったら byte array に変換
+  if (typeof(data) === 'string') {
+    data = Zlib.Util.stringToByteArray(data);
+  }
+
+  // compression
+  switch (this.compressionType) {
+    case Zlib.RawDeflate.CompressionType.NONE:
+      // each 65535-Byte (length header: 16-bit)
+      for (position = 0, length = data.length; position < length;) {
+        blockArray = slice(data, position, 0xffff);
+        position += blockArray.length;
+        push(
+          blocks,
+          this.makeNocompressBlock(blockArray, (position === length))
+        );
+      }
+      break;
+    case Zlib.RawDeflate.CompressionType.FIXED:
+      push(
+        blocks,
+        this.makeFixedHuffmanBlock(data, true)
+      );
+      break;
+    case Zlib.RawDeflate.CompressionType.DYNAMIC:
+      push(
+        blocks,
+        this.makeDynamicHuffmanBlock(data, true)
+      );
+      break;
+    default:
+      throw 'invalid compression type';
+  }
+
+  return blocks;
+};
+
+/**
+ * DEFLATE ブロックの作成
+ * @param {!(Array.<number>|Uint8Array|string)} data plain data byte array / byte string.
+ * @return {!Array} 圧縮済み byte array.
+ */
+Zlib.RawDeflate.prototype.compress = Zlib.RawDeflate.prototype.makeBlocks;
+
+/**
+ * 非圧縮ブロックの作成
+ * @param {!(Array|Uint8Array)} blockArray ブロックデータ byte array.
+ * @param {!boolean} isFinalBlock 最後のブロックならばtrue.
+ * @return {!Array} 非圧縮ブロック byte array.
+ */
+Zlib.RawDeflate.prototype.makeNocompressBlock =
+function(blockArray, isFinalBlock) {
+  var block = [], bfinal, btype, len, nlen, i, l;
+
+  // header
+  bfinal = isFinalBlock ? 1 : 0;
+  btype = Zlib.RawDeflate.CompressionType.NONE;
+  block.push((bfinal) | (btype << 1));
+
+  // length
+  len = blockArray.length;
+  nlen = (~len + 0x10000) & 0xffff;
+  block.push(
+             len & 0xff,
+     (len >>> 8) & 0xff,
+            nlen & 0xff,
+    (nlen >>> 8) & 0xff
+  );
+
+  push(block, blockArray);
+
+  return block;
+};
+
+/**
+ * 固定ハフマンブロックの作成
+ * @param {!(Array|Uint8Array)} blockArray ブロックデータ byte array.
+ * @param {!boolean} isFinalBlock 最後のブロックならばtrue.
+ * @return {!Array} 固定ハフマン符号化ブロック byte array.
+ */
+Zlib.RawDeflate.prototype.makeFixedHuffmanBlock =
+function(blockArray, isFinalBlock) {
+  var stream = new Zlib.BitStream(), bfinal, btype, data;
+
+  // header
+  bfinal = isFinalBlock ? 1 : 0;
+  btype = Zlib.RawDeflate.CompressionType.FIXED;
+
+  stream.writeBits(bfinal, 1, true);
+  stream.writeBits(btype, 2, true);
+
+  data = this.lz77(blockArray);
+  data = this.fixedHuffman(data, stream);
+
+  return data;
+};
+
+/**
+ * 動的ハフマンブロックの作成
+ * @param {!(Array|Uint8Array)} blockArray ブロックデータ byte array.
+ * @param {!boolean} isFinalBlock 最後のブロックならばtrue.
+ * @return {!Array} 動的ハフマン符号ブロック byte array.
+ */
+Zlib.RawDeflate.prototype.makeDynamicHuffmanBlock =
+function(blockArray, isFinalBlock) {
+  var stream = new Zlib.BitStream(), bfinal, btype, data,
+      hlit, hdist, hclen,
+      hclenOrder =
+        [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15],
+      litLenLengths, litLenCodes, distLengths, distCodes,
+      treeSymbols, treeLengths,
+      transLengths = new Array(19),
+      codeLengths, codeCodes, code, bitlen,
+      i, l;
+
+  // header
+  bfinal = isFinalBlock ? 1 : 0;
+  btype = Zlib.RawDeflate.CompressionType.DYNAMIC;
+
+  stream.writeBits(bfinal, 1, true);
+  stream.writeBits(btype, 2, true);
+
+  data = this.lz77(blockArray);
+
+  // リテラル・長さ, 距離のハフマン符号と符号長の算出
+  litLenLengths = this.getLengths_(this.freqsLitLen);
+  litLenCodes = this.getCodesFromLengths_(litLenLengths);
+  distLengths = this.getLengths_(this.freqsDist);
+  distCodes = this.getCodesFromLengths_(distLengths);
+
+  // HLIT, HDIST の決定
+  for (hlit = 286; hlit > 257 && litLenLengths[hlit - 1] === 0; hlit--) {}
+  for (hdist = 30; hdist > 1 && distLengths[hdist - 1] === 0; hdist--) {}
+
+  // HCLEN
+  treeSymbols =
+    this.getTreeSymbols_(hlit, litLenLengths, hdist, distLengths);
+  treeLengths = this.getLengths_(treeSymbols.freqs, 7);
+  for (i = 0; i < 19; i++) {
+    transLengths[i] = treeLengths[hclenOrder[i]];
+  }
+  for (hclen = 19; hclen > 4 && transLengths[hclen - 1] === 0; hclen--) {}
+
+  codeLengths = this.getLengths_(treeSymbols.freqs);
+  codeCodes = this.getCodesFromLengths_(codeLengths);
+
+  // 出力
+  stream.writeBits(hlit - 257, 5, true);
+  stream.writeBits(hdist - 1, 5, true);
+  stream.writeBits(hclen - 4, 4, true);
+  for (i = 0; i < hclen; i++) {
+    stream.writeBits(transLengths[i], 3, true);
+  }
+
+  // ツリーの出力
+  for (i = 0, l = treeSymbols.codes.length; i < l; i++) {
+    code = treeSymbols.codes[i];
+
+    stream.writeBits(codeCodes[code], codeLengths[code], true);
+
+    // extra bits
+    if (code >= 16) {
+      i++;
+      switch (code) {
+        case 16: bitlen = 2; break;
+        case 17: bitlen = 3; break;
+        case 18: bitlen = 7; break;
+        default:
+          throw 'invalid code: ' + code;
+      }
+
+      stream.writeBits(treeSymbols.codes[i], bitlen, true);
+    }
+  }
+
+  this.dynamicHuffman(
+    data,
+    [litLenCodes, litLenLengths],
+    [distCodes, distLengths],
+    stream
+  );
+
+  return stream.finish();
+};
+
+
+/**
  * 動的ハフマン符号化(カスタムハフマンテーブル)
- * @param {Array} dataArray LZ77 符号化済み byte array.
+ * @param {!Array} dataArray LZ77 符号化済み byte array.
  * @param {Zlib.BitStream=} stream 書き込み用ビットストリーム.
- * @return {Zlib.BitStream} ハフマン符号化済みビットストリームオブジェクト.
+ * @return {!Zlib.BitStream} ハフマン符号化済みビットストリームオブジェクト.
  */
 Zlib.RawDeflate.prototype.dynamicHuffman =
 function(dataArray, litLen, dist, stream) {
@@ -166,9 +381,9 @@ function(dataArray, litLen, dist, stream) {
 
 /**
  * 固定ハフマン符号化
- * @param {Array} dataArray LZ77 符号化済み byte array.
+ * @param {!(Array|Uint8Array)} dataArray LZ77 符号化済み byte array.
  * @param {Zlib.BitStream=} stream 書き込み用ビットストリーム.
- * @return {Array} ハフマン符号化済み byte array.
+ * @return {!Array} ハフマン符号化済み byte array.
  */
 Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
   var index, length, literal, code, bitlen, extra;
@@ -206,64 +421,68 @@ Zlib.RawDeflate.prototype.fixedHuffman = function(dataArray, stream) {
 
 /**
  * マッチ情報
- * @param {number} length マッチした長さ.
- * @param {number} backwordDistance マッチ位置との距離.
+ * @param {!number} length マッチした長さ.
+ * @param {!number} backwordDistance マッチ位置との距離.
  * @constructor
  */
 function Lz77Match(length, backwordDistance) {
   this.length = length;
   this.backwordDistance = backwordDistance;
 }
-
 /**
- * 長さ符号テーブル
- * @param {number} length 長さ.
- * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列.
- * @private
+ * 長さ符号テーブル.
+ * [コード, 拡張ビット, 拡張ビット長] の配列となっている.
+ * @const {Array.<Array.<number>>}
  */
-Lz77Match.prototype.getLengthCode_ = function(length) {
-  var r;
+Lz77Match.LengthCodeTable = (function() {
+  var table = [], i, l;
 
+  for (i = 3; i <= 258; i++) {
+    table[i] = code(i);
+  }
+
+  function code(length) {
     switch (true) {
-      case (length === 3): r = [257, length - 3, 0]; break;
-      case (length === 4): r = [258, length - 4, 0]; break;
-      case (length === 5): r = [259, length - 5, 0]; break;
-      case (length === 6): r = [260, length - 6, 0]; break;
-      case (length === 7): r = [261, length - 7, 0]; break;
-      case (length === 8): r = [262, length - 8, 0]; break;
-      case (length === 9): r = [263, length - 9, 0]; break;
-      case (length === 10): r = [264, length - 10, 0]; break;
-      case (length <= 12): r = [265, length - 11, 1]; break;
-      case (length <= 14): r = [266, length - 13, 1]; break;
-      case (length <= 16): r = [267, length - 15, 1]; break;
-      case (length <= 18): r = [268, length - 17, 1]; break;
-      case (length <= 22): r = [269, length - 19, 2]; break;
-      case (length <= 26): r = [270, length - 23, 2]; break;
-      case (length <= 30): r = [271, length - 27, 2]; break;
-      case (length <= 34): r = [272, length - 31, 2]; break;
-      case (length <= 42): r = [273, length - 35, 3]; break;
-      case (length <= 50): r = [274, length - 43, 3]; break;
-      case (length <= 58): r = [275, length - 51, 3]; break;
-      case (length <= 66): r = [276, length - 59, 3]; break;
-      case (length <= 82): r = [277, length - 67, 4]; break;
-      case (length <= 98): r = [278, length - 83, 4]; break;
-      case (length <= 114): r = [279, length - 99, 4]; break;
-      case (length <= 130): r = [280, length - 115, 4]; break;
-      case (length <= 162): r = [281, length - 131, 5]; break;
-      case (length <= 194): r = [282, length - 163, 5]; break;
-      case (length <= 226): r = [283, length - 195, 5]; break;
-      case (length <= 257): r = [284, length - 227, 5]; break;
-      case (length === 258): r = [285, length - 258, 0]; break;
+      case (length === 3): return [257, length - 3, 0]; break;
+      case (length === 4): return [258, length - 4, 0]; break;
+      case (length === 5): return [259, length - 5, 0]; break;
+      case (length === 6): return [260, length - 6, 0]; break;
+      case (length === 7): return [261, length - 7, 0]; break;
+      case (length === 8): return [262, length - 8, 0]; break;
+      case (length === 9): return [263, length - 9, 0]; break;
+      case (length === 10): return [264, length - 10, 0]; break;
+      case (length <= 12): return [265, length - 11, 1]; break;
+      case (length <= 14): return [266, length - 13, 1]; break;
+      case (length <= 16): return [267, length - 15, 1]; break;
+      case (length <= 18): return [268, length - 17, 1]; break;
+      case (length <= 22): return [269, length - 19, 2]; break;
+      case (length <= 26): return [270, length - 23, 2]; break;
+      case (length <= 30): return [271, length - 27, 2]; break;
+      case (length <= 34): return [272, length - 31, 2]; break;
+      case (length <= 42): return [273, length - 35, 3]; break;
+      case (length <= 50): return [274, length - 43, 3]; break;
+      case (length <= 58): return [275, length - 51, 3]; break;
+      case (length <= 66): return [276, length - 59, 3]; break;
+      case (length <= 82): return [277, length - 67, 4]; break;
+      case (length <= 98): return [278, length - 83, 4]; break;
+      case (length <= 114): return [279, length - 99, 4]; break;
+      case (length <= 130): return [280, length - 115, 4]; break;
+      case (length <= 162): return [281, length - 131, 5]; break;
+      case (length <= 194): return [282, length - 163, 5]; break;
+      case (length <= 226): return [283, length - 195, 5]; break;
+      case (length <= 257): return [284, length - 227, 5]; break;
+      case (length === 258): return [285, length - 258, 0]; break;
       default: throw 'invalid length: ' + length;
     }
+  };
 
-  return r;
-};
+  return table;
+})();
 
 /**
  * 距離符号テーブル
- * @param {number} dist 距離.
- * @return {Array.<number>} コード、拡張ビット、拡張ビット長の配列.
+ * @param {!number} dist 距離.
+ * @return {!Array.<number>} コード、拡張ビット、拡張ビット長の配列.
  * @private
  */
 Lz77Match.prototype.getDistanceCode_ = function(dist) {
@@ -310,7 +529,7 @@ Lz77Match.prototype.getDistanceCode_ = function(dist) {
  * マッチ情報を LZ77 符号化配列で返す.
  * なお、ここでは以下の内部仕様で符号化している
  * [ CODE, EXTRA-BIT-LEN, EXTRA, CODE, EXTRA-BIT-LEN, EXTRA ]
- * @return {Array} LZ77 符号化 byte array.
+ * @return {!Array} LZ77 符号化 byte array.
  */
 Lz77Match.prototype.toLz77Array = function() {
   var length = this.length,
@@ -318,7 +537,7 @@ Lz77Match.prototype.toLz77Array = function() {
       codeArray = [];
 
   // length
-  push(codeArray, this.getLengthCode_(length));
+  push(codeArray, Lz77Match.LengthCodeTable[length]);
 
   // distance
   push(codeArray, this.getDistanceCode_(dist));
@@ -328,8 +547,8 @@ Lz77Match.prototype.toLz77Array = function() {
 
 /**
  * LZ77 実装
- * @param {Array} dataArray LZ77 符号化するバイト配列.
- * @return {Array} LZ77 符号化した配列.
+ * @param {!(Array|Uint8Array)} dataArray LZ77 符号化するバイト配列.
+ * @return {!Array} LZ77 符号化した配列.
  */
 Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
   var position, // @type {number}
@@ -347,7 +566,7 @@ Zlib.RawDeflate.prototype.lz77 = function(dataArray) {
       skipLength = 0, // @type {number}
       freqsLitLen = [], // @type {Array.<number>}
       freqsDist = [], // @type {Array.<number>}
-      lazy = this.lazy; // @const
+      lazy = this.lazy; // @const {number}
 
   // 初期化
   for (i = 0; i <= 285; i++) { freqsLitLen[i] = 0; }
@@ -758,7 +977,7 @@ Zlib.RawDeflate.prototype.getCodesFromLengths_ = function(lengths) {
   }
 
   // undercommitted
-  if (code < (1 << Zlib.RawDeflate.MaxCodeLength)) {
+  if (code < ((1 << Zlib.RawDeflate.MaxCodeLength) >>> 0)) {
     throw 'undercommitted';
   }
 
@@ -776,6 +995,26 @@ Zlib.RawDeflate.prototype.getCodesFromLengths_ = function(lengths) {
   return codes;
 };
 
+
+//*****************************************************************************
+// export
+//*****************************************************************************
+
+/**
+ * @define {boolean} no export symbols.
+ */
+Zlib.RawDeflate.NO_EXPORT = false;
+
+if (!Zlib.RawDeflate.NO_EXPORT) {
+  goog.exportSymbol(
+    'Zlib.RawDeflate',
+    Zlib.RawDeflate
+  );
+  goog.exportSymbol(
+    'Zlib.RawDeflate.CompressionType',
+    Zlib.RawDeflate.CompressionType
+  );
+}
 
 // end of scope
 });

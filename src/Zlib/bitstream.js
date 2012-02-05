@@ -44,9 +44,9 @@ Zlib.BitStream = function() {
 
 /**
  * ビットを指定した数だけ書き込む
- * @param {number} number 書き込む数値.
- * @param {number} n 書き込むビット数.
- * @param {boolean=} reverse 逆順に書き込むならば true.
+ * @param {!number} number 書き込む数値.
+ * @param {!number} n 書き込むビット数.
+ * @param {!boolean=} reverse 逆順に書き込むならば true.
  */
 Zlib.BitStream.prototype.writeBits = function(number, n, reverse) {
   var i, add,
@@ -77,7 +77,7 @@ Zlib.BitStream.prototype.writeBits = function(number, n, reverse) {
 
 /**
  * ストリームの終端処理を行う
- * @return {Array} 終端処理後のバッファを byte array で返す.
+ * @return {!Array} 終端処理後のバッファを byte array で返す.
  */
 Zlib.BitStream.prototype.finish = function() {
   if (this.bitindex > 0) {
@@ -91,8 +91,8 @@ Zlib.BitStream.prototype.finish = function() {
 
 /**
  * 指定した位置のバイトのビット順序を反転する
- * @param {number} index ビット順序の反転を行う位置.
- * @return {number} 反転した後の値.
+ * @param {!number} index ビット順序の反転を行う位置.
+ * @return {!number} 反転した後の値.
  */
 Zlib.BitStream.prototype.reverseByte = function(index) {
   var dst = 0, src = this.buffer[index], i;

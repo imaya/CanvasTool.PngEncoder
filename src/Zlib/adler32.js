@@ -35,10 +35,13 @@ goog.scope(function() {
 
 /**
  * Adler32 ハッシュ値の作成
- * @param {Array|Uint8Array} array 算出に使用する byte array.
+ * @param {!(Array|Uint8Array|string)} array 算出に使用する byte array.
  * @return {number} Adler32 ハッシュ値.
  */
 Zlib.Adler32 = function(array) {
+  if (typeof(array) === 'string') {
+    array = Zlib.Util.stringToByteArray(array);
+  }
   return Zlib.Adler32.update(1, array);
 };
 
@@ -57,7 +60,7 @@ Zlib.Adler32.update = function(adler, array) {
     s2 = (s2 + s1) % 65521;
   }
 
-  return (s2 << 16) | s1;
+  return ((s2 << 16) | s1) >>> 0;
 };
 
 
