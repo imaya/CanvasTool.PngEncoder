@@ -48,7 +48,7 @@ goog.scope(function() {
 Zlib.Deflate = function(opt_params) {
   /**
    * Deflate 符号化対象のバッファ
-   * @type {Array|Uint8Array}
+   * @type {!(Array|Uint8Array)}
    */
   this.buffer = [];
 
@@ -85,7 +85,7 @@ var convertNetworkByteOrder = Zlib.Util.convertNetworkByteOrder;
  * @param {{
  *     compressionType: Zlib.RawDeflate.CompressionType
  * }=} opt_params option parameters.
- * @return {Array} compressed data byte array.
+ * @return {!Array} compressed data byte array.
  */
 Zlib.Deflate.compress = function(buffer, opt_params) {
   return (new Zlib.Deflate(opt_params)).compress(buffer);
@@ -94,7 +94,7 @@ Zlib.Deflate.compress = function(buffer, opt_params) {
 /**
  * Deflate Compression
  * @param {!(Array|Uint8Array|string)} buffer Data.
- * @return {Array} compressed data byte array.
+ * @return {!Array} compressed data byte array.
  */
 Zlib.Deflate.prototype.compress = function(buffer) {
   var cmf, flg, cm, cinfo, fcheck, fdict, flevel,
