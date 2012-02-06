@@ -47,9 +47,9 @@ goog.scope(function() {
 
 /**
  * Canvas to PNG converter
- * @param {Element|Array|CanvasPixelArray} canvas 対象となる Canvas エレメント
- *     もしくはその CanvasPixelArray 互換の配列.
- * @param {Object=} opt_param 変換オプション. canvsa が Canvas エレメントの場合
+ * @param {!(Element|Array|Uint8Array|CanvasPixelArray)} canvas 対象となる
+ *     Canvas エレメント, もしくはその CanvasPixelArray 互換の配列.
+ * @param {!Object=} opt_param 変換オプション. canvas が Canvas エレメントの場合
  *     以外では、かならず width と height が必要となる.
  * @constructor
  */
@@ -57,9 +57,9 @@ CanvasTool.PngEncoder = function(canvas, opt_param) {
   var ctx, width, height;
 
   /**
-   * @type {Array|CanvasPixelArray}
+   * @type {!(Array|CanvasPixelArray|Uint8Array)}
    */
-  this.data = [];
+  this.data;
 
   if (canvas instanceof Element) {
     width = canvas.width;
@@ -95,9 +95,9 @@ CanvasTool.PngEncoder = function(canvas, opt_param) {
 
 /**
  * PNG パラメータの設定
- * @param {number} width 横幅.
- * @param {number} height 縦幅.
- * @param {Object=} opt_param 変換オプション.
+ * @param {!number} width 横幅.
+ * @param {!number} height 縦幅.
+ * @param {!Object=} opt_param 変換オプション.
  */
 CanvasTool.PngEncoder.prototype.setParameters =
 function(width, height, opt_param) {
@@ -109,62 +109,62 @@ function(width, height, opt_param) {
 
   /**
    * 横幅
-   * @type {number}
+   * @type {!number}
    */
   this.width = width;
 
   /**
    * 縦幅
-   * @type {number}
+   * @type {!number}
    */
   this.height = height;
 
   /**
    * ビット深度
-   * @type {number}
+   * @type {!number}
    */
   this.bitDepth = 8;
 
   /**
    * 色空間
-   * @type {CanvasTool.PngEncoder.ColourType}
+   * @type {!CanvasTool.PngEncoder.ColourType}
    */
   this.colourType = CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA;
 
   /**
    * 圧縮方法
-   * @type {CanvasTool.PngEncoder.CompressionMethod}
+   * @type {!CanvasTool.PngEncoder.CompressionMethod}
    */
   this.compressionMethod = CanvasTool.PngEncoder.CompressionMethod.DEFLATE;
 
   /**
    * フィルタ方法
-   * @type {CanvasTool.PngEncoder.FilterMethod}
+   * @type {!CanvasTool.PngEncoder.FilterMethod}
    */
   this.filterMethod = CanvasTool.PngEncoder.FilterMethod.BASIC;
 
   /**
    * 基本フィルタのタイプ
-   * @type {CanvasTool.PngEncoder.BasicFilterType}
+   * @type {!CanvasTool.PngEncoder.BasicFilterType}
    */
   this.filterType = CanvasTool.PngEncoder.BasicFilterType.NONE;
 
   /**
    * インタレース方法
-   * @type {CanvasTool.PngEncoder.InterlaceMethod}
+   * @type {!CanvasTool.PngEncoder.InterlaceMethod}
    */
   this.interlaceMethod = CanvasTool.PngEncoder.InterlaceMethod.NONE;
 
   /**
-   * ガンマ値 ( null の場合 gAMA チャンクは付与されない)
-   * @type {?number}
+   * ガンマ値 ( undefined の場合 gAMA チャンクは付与されない)
+   * @type {!number}
    */
-  this.gamma = null;
+  this.gamma;
 
   /**
-   * 基礎色度 ( null の場合 cHRM チャンクは付与されない)
+   * 基礎色度 ( undefined の場合 cHRM チャンクは付与されない)
    * Primary chromaticities and white point
-   * @type {?{
+   * @type {!{
    *   whitePointX: number,
    *   whitePointY: number,
    *   redX: number,
@@ -174,7 +174,7 @@ function(width, height, opt_param) {
    *   blueX: number,
    *   blueY: number}}
    */
-  this.chrm = null;
+  this.chrm;
 
   /**
    * 推奨パレット
@@ -182,34 +182,34 @@ function(width, height, opt_param) {
    * 負数の時は出現する全ての色を推奨パレットに含める
    * 0 は無効 ( sPLT チャンクを付与しない)
    * 1 以上の時は出現頻度上位 n 件まで推奨パレットに含める
-   * @type {?{
+   * @type {!{
    *   name: string,
    *   num: number
    * }}
    */
-  this.splt = null;
+  this.splt;
 
   /**
-   * Standard RGB colour space ( null の場合 sRGB チャンクは付与されない)
-   * @type {?CanvasTool.PngEncoder.RenderingIntent}
+   * Standard RGB colour space ( undefined の場合 sRGB チャンクは付与されない)
+   * @type {!CanvasTool.PngEncoder.RenderingIntent}
    */
-  this.srgb = null;
+  this.srgb;
 
   /**
-   * Significant bits ( null の場合 sBIT チャンクは付与されない)
-   * @type {Array.<number>}
+   * Significant bits ( undefined の場合 sBIT チャンクは付与されない)
+   * @type {!Array.<number>}
    */
-  this.sbit = null;
+  this.sbit;
 
   /**
-   * ICC プロファイル ( null の場合 iCCP チャンクは付与されない)
-   * @type {?{
-   *   name: string,
-   *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod,
-   *   profile: Array
+   * ICC プロファイル ( undefined の場合 iCCP チャンクは付与されない)
+   * @type {!{
+   *   name: !string,
+   *   compressionMethod: !CanvasTool.PngEncoder.CompressionMethod,
+   *   profile: !Array
    * }}
    */
-  this.iccp = null;
+  this.iccp;
 
   /**
    * Image Histogram を保存するかどうか (true で hIST チャンクを付与する)
@@ -219,44 +219,50 @@ function(width, height, opt_param) {
 
   /**
    * Physical pixel dimensions
-   * @type {?{
+   * @type {!{
    *   x: number,
    *   y: number,
    *   unit: CanvasTool.PngEncoder.UnitSpecifier
    * }}
    */
-  this.phys = null;
+  this.phys;
 
   /**
    * Image last-modification time
    * @type {Date}
    */
-  this.time = null;
+  this.time;
 
   /**
    * Textual data
-   * @type {?{
+   * @type {!{
    *   keyword: string,
    *   text: string
    * }}
    */
-  this.text = null;
+  this.text;
 
   /**
    * Compressed textual data
-   * @type {?{
+   * @type {!{
    *   keyword: string,
    *   text: string,
    *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod
    * }}
    */
-  this.ztxt = null;
+  this.ztxt;
 
   /**
    * パレット使用時にαチャンネルを保存するか
    * @type {boolean}
    */
   this.trns = true;
+
+  /**
+   * Deflate 設定
+   * @type {!Object}
+   */
+  this.deflate;
 
   // パラメータによる設定の適用
   for (param in opt_param) {
@@ -265,7 +271,7 @@ function(width, height, opt_param) {
 
   /**
    * フィルタメソッド
-   * @type {function(Array, number):Array}
+   * @type {function(!Array, number):!Array}
    * @private
    */
   this.filter_;
@@ -275,26 +281,26 @@ function(width, height, opt_param) {
    * @type {Array}
    * @private
    */
-  this.prevLine_;
+  this.prevLine_ = null;
 
   /**
    * インターレースメソッド
-   * @type {function(Array.<Array.<number>>):Array.<number>}
+   * @type {function(!Array.<Array.<number>>):!Array.<number>}
    * @private
    */
   this.interlace_;
 
   /**
    * パレット
-   * @type {Array.<number>}
+   * @type {!Array.<number>}
    * @private
    */
-  this.palette_ = null;
+  this.palette_;
 
   /**
    * 色出現回数
    * @type {
-   *   Array.<{
+   *   !Array.<{
    *     red: number,
    *     green: number,
    *     blue: number,
@@ -308,7 +314,7 @@ function(width, height, opt_param) {
 
   /**
    * パレットの色出現回数
-   * @type {Array.<number>}
+   * @type {!Array.<number>}
    * @private
    */
   this.paletteHistogram_ = [];
@@ -319,7 +325,7 @@ function(width, height, opt_param) {
 
 /**
  * チャンクタイプ
- * @enum {Array.<number>}
+ * @enum {!Array.<number>}
  */
 CanvasTool.PngEncoder.ChunkType = {
   // 必須チャンク
@@ -459,7 +465,7 @@ CanvasTool.PngEncoder.BlueWeight_ = 0.11448;
 
 /**
  * CRC32 で使用するテーブル
- * @type {Array.<number>}
+ * @type {!Array.<number>}
  * @const
  * @private
  */
@@ -511,7 +517,7 @@ CanvasTool.PngEncoder.Crc32Table_ = [
 
 /**
  * Adam7 で使用する、各パスの初期位置とステップ数のテーブル
- * @type {Array.<Object>}
+ * @type {!Array.<Object>}
  * @const
  * @private
  */
@@ -527,7 +533,7 @@ CanvasTool.PngEncoder.Adam7Table_ = [
 
 /**
  * PNG へ変換を行う
- * @return {string} PNGバイナリ.
+ * @return {!string} PNGバイナリ.
  */
 CanvasTool.PngEncoder.prototype.convert = function(opt_canvasArray) {
   return str_(this.makePng_());
@@ -535,7 +541,7 @@ CanvasTool.PngEncoder.prototype.convert = function(opt_canvasArray) {
 
 /**
  * パレットの取得
- * @return {Array.<number>} パレットの配列.
+ * @return {!Array.<number>} パレットの配列.
  */
 CanvasTool.PngEncoder.prototype.getPalette = function() {
   var palette, imageInfo;
@@ -591,7 +597,7 @@ CanvasTool.PngEncoder.prototype.validate_ = function() {
 
 /**
  * PNG の作成
- * @return {Array} PNG バイナリ byte array.
+ * @return {!Array} PNG バイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makePng_ = function() {
@@ -701,7 +707,7 @@ CanvasTool.PngEncoder.prototype.makePng_ = function() {
 
 /**
  * Image Header
- * @return {Array} IHDR チャンクバイナリ byte array.
+ * @return {!Array} IHDR チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeIHDR_ = function() {
@@ -720,7 +726,7 @@ CanvasTool.PngEncoder.prototype.makeIHDR_ = function() {
 
 /**
  * make PLTE and IDAT data
- * @return {Object} PLTE プロパティにパレット、IDAT プロパティにピクセル配列,
+ * @return {!Object} PLTE プロパティにパレット、IDAT プロパティにピクセル配列,
  *     tRNS プロパティに透明度パレットを含むオブジェクト.
  * @private
  */
@@ -904,16 +910,16 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
 
 /**
  * 基礎色度
- * @param {{
- *   whitePointX: number,
- *   whitePointY: number,
- *   redX: number,
- *   redY: number,
- *   greenX: number,
- *   greenY: number,
- *   blueX: number,
- *   blueY: number}} chrm 基礎色度情報.
- * @return {Array} cHRM チャンク byte array.
+ * @param {!{
+ *   whitePointX: !number,
+ *   whitePointY: !number,
+ *   redX: !number,
+ *   redY: !number,
+ *   greenX: !number,
+ *   greenY: !number,
+ *   blueX: !number,
+ *   blueY: !number}} chrm 基礎色度情報.
+ * @return {!Array} cHRM チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makecHRM_ = function(chrm) {
@@ -933,8 +939,8 @@ CanvasTool.PngEncoder.prototype.makecHRM_ = function(chrm) {
 
 /**
  * ガンマ値
- * @param {number} gamma ガンマ値.
- * @return {Array} gAMA チャンク byte array.
+ * @param {!number} gamma ガンマ値.
+ * @return {!Array} gAMA チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makegAMA_ = function(gamma) {
@@ -945,8 +951,8 @@ CanvasTool.PngEncoder.prototype.makegAMA_ = function(gamma) {
 };
 /**
  * Significant bits
- * @param {Array.<number>} sbit 元データの各色の有効ビット数を格納した配列.
- * @return {Array} sBIT チャンク byte array.
+ * @param {!Array.<number>} sbit 元データの各色の有効ビット数を格納した配列.
+ * @return {!Array} sBIT チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makesBIT_ = function(sbit) {
@@ -1000,8 +1006,8 @@ CanvasTool.PngEncoder.prototype.makesBIT_ = function(sbit) {
 
 /**
  * Standard RGB colour space.
- * @param {CanvasTool.PngEncoder.RenderingIntent} ri レンダリング時の解釈仕様.
- * @return {Array} sRGB チャンク byte array.
+ * @param {!CanvasTool.PngEncoder.RenderingIntent} ri レンダリング時の解釈仕様.
+ * @return {!Array} sRGB チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makesRGB_ = function(ri) {
@@ -1014,12 +1020,12 @@ CanvasTool.PngEncoder.prototype.makesRGB_ = function(ri) {
 /**
  * ICC プロファイル
  * XXX: 未テスト.
- * @param {?{
- *   name: string,
- *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod,
- *   profile: Array
+ * @param {!{
+ *   name: !string,
+ *   compressionMethod: !CanvasTool.PngEncoder.CompressionMethod,
+ *   profile: !Array
  * }} iccp ICCP プロファイル.
- * @return {Array} iCCP チャンク byte array.
+ * @return {!Array} iCCP チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeiCCP_ = function(iccp) {
@@ -1063,12 +1069,12 @@ CanvasTool.PngEncoder.prototype.makeiCCP_ = function(iccp) {
 
 /**
  * Background colour
- * @param {Array.<number>} backgroundColour 背景色を表す配列.
+ * @param {!Array.<number>} backgroundColour 背景色を表す配列.
  *     グレースケールの際はグレーレベル(0-65535),
  *     それ以外では Red, Green, Blue (0-65535) の順に格納された配列.
  *     ビット深度が16未満の際は下位ビットのみ使用される.
- * @param {Array.<number>} palette Indexed-Colour の際に使用するパレット配列.
- * @return {Array.<number>} bKGD チャンク byte array.
+ * @param {!Array.<number>} palette Indexed-Colour の際に使用するパレット配列.
+ * @return {!Array.<number>} bKGD チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makebKGD_ =
@@ -1129,8 +1135,8 @@ function(backgroundColour, palette) {
 
 /**
  * Image Histogram
- * @param {Array.<number>} hist パレットエントリ毎の出現回数配列.
- * @return {Array.<number>} hIST チャンク byte array.
+ * @param {!Array.<number>} hist パレットエントリ毎の出現回数配列.
+ * @return {!Array.<number>} hIST チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makehIST_ = function(hist) {
@@ -1161,8 +1167,8 @@ CanvasTool.PngEncoder.prototype.makehIST_ = function(hist) {
  *   name: string,
  *   num: number
  * }} splt sPLT 設定オブジェクト.
- * @param {Array.<number>} hist パレットエントリ毎の出現回数配列.
- * @return {Array.<number>} sPLT チャンク byte array.
+ * @param {!Array.<number>} hist パレットエントリ毎の出現回数配列.
+ * @return {!Array.<number>} sPLT チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makesPLT_ = function(splt, hist) {
@@ -1246,8 +1252,8 @@ CanvasTool.PngEncoder.prototype.makesPLT_ = function(splt, hist) {
 
 /**
  * Palette
- * @param {Array} palette パレット配列.
- * @return {Array} PLTE チャンクバイナリ byte array.
+ * @param {!Array} palette パレット配列.
+ * @return {!Array} PLTE チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makePLTE_ = function(palette) {
@@ -1268,7 +1274,7 @@ CanvasTool.PngEncoder.prototype.makePLTE_ = function(palette) {
  *   y: number,
  *   unit: CanvasTool.PngEncoder.UnitSpecifier
  * }} phys phisical pixel dimensions settings.
- * @return {Array} pHYs チャンクバイナリ byte array.
+ * @return {!Array} pHYs チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makepHYs_ = function(phys) {
@@ -1290,7 +1296,7 @@ CanvasTool.PngEncoder.prototype.makepHYs_ = function(phys) {
  *   keyword: string,
  *   text: string
  * }} text text data.
- * @return {Array} tEXt チャンクバイナリ byte array.
+ * @return {!Array} tEXt チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.maketEXt_ = function(text) {
@@ -1319,7 +1325,7 @@ CanvasTool.PngEncoder.prototype.maketEXt_ = function(text) {
  *   text: string,
  *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod
  * }} text text data.
- * @return {Array} zTXt チャンクバイナリ byte array.
+ * @return {!Array} zTXt チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makezTXt_ = function(text) {
@@ -1337,7 +1343,7 @@ CanvasTool.PngEncoder.prototype.makezTXt_ = function(text) {
   // data
   switch (text.compressionMethod) {
     case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-      push_(data, Zlib.Deflate.compress(bytearray_(text.text)));
+      push_(data, Zlib.Deflate.compress(bytearray_(text.text), this.deflate));
       break;
     default:
       throw new Error('unknown compression method');
@@ -1359,7 +1365,7 @@ CanvasTool.PngEncoder.prototype.makezTXt_ = function(text) {
  *   translatedKeyword: string,
  *   compressionMethod: ?CanvasTool.PngEncoder.CompressionMethod
  * }} text text data.
- * @return {Array} iTXt チャンクバイナリ byte array.
+ * @return {!Array} iTXt チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeiTXt_ = function(text) {
@@ -1381,7 +1387,8 @@ CanvasTool.PngEncoder.prototype.makeiTXt_ = function(text) {
     // text compression
     switch (text.compressionMethod) {
       case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-        compressedText = Zlib.Deflate.compress(bytearray_(utf8_(text.text)));
+        compressedText =
+          Zlib.Deflate.compress(bytearray_(utf8_(text.text)), this.deflate);
         break;
       default:
         throw new Error('unknown compression method');
@@ -1424,7 +1431,7 @@ CanvasTool.PngEncoder.prototype.makeiTXt_ = function(text) {
 /**
  * Image last-modification time
  * @param {Date} time last-modification time.
- * @return {Array} tIME チャンクバイナリ byte array.
+ * @return {!Array} tIME チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.maketIME_ = function(time) {
@@ -1445,8 +1452,8 @@ CanvasTool.PngEncoder.prototype.maketIME_ = function(time) {
 
 /**
  * Image Data
- * @param {Array} pixelArray イメージのバイナリ配列.
- * @return {Array} IDAT チャンクバイナリ Array.
+ * @param {!Array} pixelArray イメージのバイナリ配列.
+ * @return {!Array} IDAT チャンクバイナリ Array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeIDAT_ = function(pixelArray) {
@@ -1506,7 +1513,7 @@ CanvasTool.PngEncoder.prototype.makeIDAT_ = function(pixelArray) {
   // データの圧縮
   switch (this.compressionMethod) {
     case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-      idat = Zlib.Deflate.compress(idat);
+      idat = Zlib.Deflate.compress(idat, this.deflate);
       break;
     default:
       throw new Error('unknown compression method');
@@ -1517,7 +1524,7 @@ CanvasTool.PngEncoder.prototype.makeIDAT_ = function(pixelArray) {
 
 /**
  * Image End
- * @return {Array} IEND チャンクバイナリ Array.
+ * @return {!Array} IEND チャンクバイナリ Array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeIEND_ = function() {
@@ -1526,11 +1533,11 @@ CanvasTool.PngEncoder.prototype.makeIEND_ = function() {
 
 /**
  * Transparency
- * @param {Array.<number>} alpha α値.
+ * @param {!Array.<number>} alpha α値.
  *     Indexed-Color では Palette に対応するα値の配列,
  *     Grayscale では透明として扱うグレーレベルを [Gray],
  *     Truecolor では透明として扱う色を [Red, Green, Blue] で指定.
- * @return {Array.<number>} tRNS チャンクバイナリ byte array.
+ * @return {!Array.<number>} tRNS チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.maketRNS_ = function(alpha) {
@@ -1600,7 +1607,7 @@ CanvasTool.PngEncoder.prototype.getBytesPerCompletePixel_ = function() {
 
 /**
  * インターレースメソッドの取得
- * @return {function(Array):Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
+ * @return {function(!Array):!Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
  * @private
  */
 CanvasTool.PngEncoder.prototype.getInterlace_ = function() {
@@ -1624,7 +1631,7 @@ CanvasTool.PngEncoder.prototype.getInterlace_ = function() {
  * Pass
  * @param {number} width パスの横幅.
  * @param {number} height パスの縦幅.
- * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
+ * @param {!Array.<Array.<number>>} pixelArray ピクセル単位の配列.
  * @constructor
  */
 CanvasTool.PngEncoder.Pass_ = function(width, height, pixelArray) {
@@ -1635,8 +1642,8 @@ CanvasTool.PngEncoder.Pass_ = function(width, height, pixelArray) {
 
 /**
  * Interlace None
- * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
- * @return {Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
+ * @param {!Array.<Array.<number>>} pixelArray ピクセル単位の配列.
+ * @return {!Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
  * @private
  */
 CanvasTool.PngEncoder.prototype.interlaceNone_ = function(pixelArray) {
@@ -1645,8 +1652,8 @@ CanvasTool.PngEncoder.prototype.interlaceNone_ = function(pixelArray) {
 
 /**
  * Interlace Adam7
- * @param {Array.<Array.<number>>} pixelArray ピクセル単位の配列.
- * @return {Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
+ * @param {!Array.<Array.<number>>} pixelArray ピクセル単位の配列.
+ * @return {!Array.<CanvasTool.PngEncoder.Pass_>} 描画パスのリスト.
  * @private
  */
 CanvasTool.PngEncoder.prototype.interlaceAdam7_ = function(pixelArray) {
@@ -1705,8 +1712,8 @@ CanvasTool.PngEncoder.prototype.interlaceAdam7_ = function(pixelArray) {
 
 /**
  * Pixel Array to Byte Array
- * @param {Array|CanvasPixelArray} pixelArray canvas pixel array like.
- * @return {Array} pixel byte array.
+ * @param {!(Array|CanvasPixelArray)} pixelArray canvas pixel array like.
+ * @return {!Array} pixel byte array.
  */
 CanvasTool.PngEncoder.prototype.pixelArrayToByteArray_ = function(pixelArray) {
   var byteArray = [], pixel, color,
@@ -1743,7 +1750,7 @@ CanvasTool.PngEncoder.prototype.pixelArrayToByteArray_ = function(pixelArray) {
 
 /**
  * フィルタメソッドの取得
- * @return {function(Array.<number>, number):Array} フィルタメソッド.
+ * @return {function(!Array.<number>, number):!Array} フィルタメソッド.
  * @private
  */
 CanvasTool.PngEncoder.prototype.getFilter_ = function() {
@@ -1780,9 +1787,9 @@ CanvasTool.PngEncoder.prototype.getFilter_ = function() {
 
 /**
  * Filter None
- * @param {Array.<number>} lineByteArray line byte array.
+ * @param {!Array.<number>} lineByteArray line byte array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {Array} filtered line byte array.
+ * @return {!Array} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterNone_ = function(lineByteArray, sub) {
@@ -1795,9 +1802,9 @@ CanvasTool.PngEncoder.prototype.filterNone_ = function(lineByteArray, sub) {
 
 /**
  * Filter Sub
- * @param {Array.<number>} lineByteArray line array.
+ * @param {!Array.<number>} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {Array} filtered line byte array.
+ * @return {!Array} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterSub_ = function(lineByteArray, sub) {
@@ -1813,9 +1820,9 @@ CanvasTool.PngEncoder.prototype.filterSub_ = function(lineByteArray, sub) {
 
 /**
  * Filter Up
- * @param {Array.<number>} lineByteArray line array.
+ * @param {!Array.<number>} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {Array} filtered line byte array.
+ * @return {!Array} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterUp_ = function(lineByteArray, sub) {
@@ -1831,9 +1838,9 @@ CanvasTool.PngEncoder.prototype.filterUp_ = function(lineByteArray, sub) {
 
 /**
  * Filter Average
- * @param {Array.<number>} lineByteArray line array.
+ * @param {!Array.<number>} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {Array} filtered line byte array.
+ * @return {!Array} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterAverage_ = function(lineByteArray, sub) {
@@ -1854,9 +1861,9 @@ CanvasTool.PngEncoder.prototype.filterAverage_ = function(lineByteArray, sub) {
 
 /**
  * Filter Paeth
- * @param {Array.<number>} lineByteArray line array.
+ * @param {!Array.<number>} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {Array} filtered line byte array.
+ * @return {!Array} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterPaeth_ = function(lineByteArray, sub) {
@@ -1898,10 +1905,10 @@ CanvasTool.PngEncoder.prototype.paethPredictor_ = function(a, b, c) {
 /**
  * Array 風のオブジェクトに対する slice 実装.
  * CanvasPixelArray 用に使用する.
- * @param {Array|Object} arraylike slice の対象となる Array 風のオブジェクト.
+ * @param {!(Array|Object)} arraylike slice の対象となる Array 風のオブジェクト.
  * @param {number} start 開始 index.
  * @param {number} length 切り出す長さ.
- * @return {Array} 指定した範囲の新しい配列.
+ * @return {!Array} 指定した範囲の新しい配列.
  * @private
  */
 CanvasTool.PngEncoder.prototype.slice_ = function(arraylike, start, length) {
@@ -1925,9 +1932,9 @@ CanvasTool.PngEncoder.prototype.slice_ = function(arraylike, start, length) {
 
 /**
  * チャンクの作成
- * @param {CanvasTool.PngEncoder.ChunkType} type Chunk type.
- * @param {Array} data Chunk data byte array.
- * @return {Array} Chunk byte array.
+ * @param {!CanvasTool.PngEncoder.ChunkType} type Chunk type.
+ * @param {!Array} data Chunk data byte array.
+ * @return {!Array} Chunk byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeChunk_ = function(type, data) {
@@ -1951,7 +1958,7 @@ CanvasTool.PngEncoder.prototype.makeChunk_ = function(type, data) {
  * network byte order integer
  * @param {number} number source number.
  * @param {number=} size size.
- * @return {Array} network byte order byte array.
+ * @return {!Array} network byte order byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.networkByteOrder_ = function(number, size) {
@@ -1975,7 +1982,7 @@ CanvasTool.PngEncoder.prototype.networkByteOrder_ = function(number, size) {
 
 /**
  * CRC32ハッシュ値を更新
- * @param {Array} data data byte array.
+ * @param {!Array} data data byte array.
  * @param {number} crc CRC32.
  * @return {number} CRC32.
  * @private
@@ -1993,7 +2000,7 @@ CanvasTool.PngEncoder.prototype.updateCRC32_ = function(data, crc) {
 
 /**
  * CRC32 ハッシュ値を取得
- * @param {Array} data data byte array.
+ * @param {!Array} data data byte array.
  * @return {number} CRC32.
  * @private
  */
@@ -2022,7 +2029,7 @@ CanvasTool.PngEncoder.prototype.rgb2y_ = function(red, green, blue) {
 
 /**
  * [R, G, B(, A)]の形に並んでいる配列からバイナリ文字列に変換する
- * @param {Array.<number>} color [R, G, B(, A)]形式の配列.
+ * @param {!Array.<number>} color [R, G, B(, A)]形式の配列.
  * @return {string} 変換されたバイナリ文字列.
  * @private
  */
@@ -2032,7 +2039,7 @@ CanvasTool.PngEncoder.prototype.rgb2str_ = function(color) {
 
 /**
  * [R, G, B, A]の形に並んでいる配列からバイナリ文字列に変換する
- * @param {Array.<number>} color [R, G, B, A]形式の配列.
+ * @param {!Array.<number>} color [R, G, B, A]形式の配列.
  * @return {string} 変換されたバイナリ文字列.
  * @private
  */
@@ -2054,8 +2061,8 @@ CanvasTool.PngEncoder.prototype.fromCharCode_ = function(code) {
 
 /**
  * 配列の末尾への結合を破壊的に行う.
- * @param {Array} dst 結合先となる配列.
- * @param {Array} src 結合元となる配列.
+ * @param {!Array} dst 結合先となる配列.
+ * @param {!Array} src 結合元となる配列.
  */
 function push_(dst, src) {
   var i = 0, dl = src.length, sl = src.length, pushImpl = (!!dst.push);
@@ -2076,7 +2083,7 @@ function push_(dst, src) {
 /**
  * 文字列から bytearray への変換
  * @param {string} str byte array に変換する文字列.
- * @return {Array.<number>} 変換した byte array.
+ * @return {!Array.<number>} 変換した byte array.
  * @private
  */
 function bytearray_(str) {
@@ -2092,7 +2099,7 @@ function bytearray_(str) {
 
 /**
  * Math.max.apply 代替
- * @param {Array.<number>} array 対象となる配列.
+ * @param {!Array.<number>} array 対象となる配列.
  * @return {number} array の中で最大の数値.
  * @private
  */
