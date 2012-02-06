@@ -54,8 +54,8 @@ Zlib.BitStream.prototype.writeBits = function(number, n, reverse) {
       bufferIndex = this.index;
 
   for (i = 0; i < n; i++) {
-    if (buffer[this.index] === undefined) {
-      buffer[this.index] = 0;
+    if (buffer[bufferIndex] === undefined) {
+      buffer[bufferIndex] = 0;
     }
 
     if (reverse) {
@@ -64,15 +64,17 @@ Zlib.BitStream.prototype.writeBits = function(number, n, reverse) {
     } else {
       add = ((number >>> n - i - 1) & 1) === 0 ? 0 : 1;
     }
-    buffer[this.index] = (buffer[this.index] << 1) | add;
+    buffer[bufferIndex] = ((buffer[bufferIndex] << 1) | add) >>> 0;
 
     this.bitindex++;
     if (this.bitindex === 8) {
       this.bitindex = 0;
-      this.reverseByte(this.index);
-      this.index++;
+      this.reverseByte(bufferIndex);
+      bufferIndex++;
     }
   }
+
+  this.index = bufferIndex;
 };
 
 /**
@@ -102,7 +104,7 @@ Zlib.BitStream.prototype.reverseByte = function(index) {
     src >>>= 1;
   }
 
-  this.buffer[index] = dst;
+  this.buffer[index] = dst >>> 0;
 
   return this.buffer[index];
 };
