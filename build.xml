@@ -1,139 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
 <project name="project" default="all" >
+  <!--property name="level" value="SIMPLE_OPTIMIZATIONS"/-->
+  <property name="level" value="LIBRARY_OPTIMIZATIONS"/>
+  <property name="src" value="./src"/>
+  <property name="def" value="./define"/>
+  <property name="vendor" value="./vendor"/>
+  <property name="zlib" value="./vendor/zlib.js/src"/>
+  <property name="bin" value="./bin"/>
+  <property name="compiler" value="${vendor}/google-closure-compiler/compiler.jar"/>
+  <property name="closure_primitives" value="closure-primitives/base.js"/>
+  <property name="depswriter" value="closure-primitives/depswriter.py"/>
+  <property name="depend" value="closure-primitives/deps.js"/>
 
-	<!-- ソースディレクトリ -->
-	<property name="src" value="./src" />
+  <!-- ビルドの事前準備 -->
+  <target name="prebuild" description="ビルドの事前準備を行う">
+     <mkdir dir="${bin}"/>
+  </target>
 
-	<!-- ベンダーディレクトリ -->
-	<property name="vendor" value="./vendor" />
+  <!-- 依存関係を解決する -->
+  <target name="deps" description="依存関係を解決する">
+    <exec executable="python" failonerror="true">
+      <arg line="${depswriter}"/>
+      <arg line="--root_with_prefix=&quot;. ..&quot;"/>
+      <arg line="--output_file=${depend}"/>
+    </exec>
+    <fileset dir="${src}" includes="**/*.js" id="srcpath"/>
+    <pathconvert property="srcfiles" refid="srcpath" pathsep=" "/>
+    <fileset dir="${zlib}" includes="**/*.js" id="zlibpath"/>
+    <pathconvert property="zlibfiles" refid="zlibpath" pathsep=" "/>
+  </target>
 
-	<!-- バイナリディレクトリ -->
-	<property name="bin" value="./bin" />
+  <!-- Zlib のビルド -->
+  <target name="build" depends="deps,prebuild" description="リリース版のファイル zlib.min.js を作成する">
+    <!-- 出力ファイル名 -->
+    <local name="outfile"/>
+    <property name="outfile" value="${bin}/canvastool.pngencoder.min.js"/>
+    <!-- ビルド(出力先は一時ファイル) -->
+    <java jar="${compiler}" fork="true" failonerror="true">
+      <arg line="--warning_level=VERBOSE"/>
+      <arg line="--compilation_level=${level}"/>
+      <arg line="--define=goog.DEBUG=false"/>
+      <arg line="--define=CanvasTool.PngEncoder.NO_EXPORT=false"/>
+      <arg line="--output_wrapper='(function() {%output%}).call(this);'"/>
+      <arg line="--summary_detail_level=3"/>
+      <arg line="--language_in=ECMASCRIPT5_STRICT"/>
+      <arg line="--js_output_file=${outfile}.tmp"/>
+      <arg line="--js=${closure_primitives}"/>
+      <arg line="--js=${depend}"/>
+      <arg line="${def}/typedarray/hybrid.js"/>
+      <arg line="${zlibfiles}"/>
+      <arg line="${srcfiles}"/>
+    </java>
+    <!-- ライセンスとビルドされたファイルをプロパティとして読み込む -->
+    <local name="license"/>
+    <loadfile property="license" srcfile="./LICENSE.short"/>
+    <local name="output"/>
+    <loadfile property="output" srcfile="${outfile}.tmp"/>
+    <!-- ライセンスとビルドされたファイルの結合 -->
+    <echo file="${outfile}" append="no" message="${license}"/>
+    <echo file="${outfile}" append="yes" message="${output}"/>
+    <fixcrlf file="${outfile}" eol="unix" eof="remove"/>
+    <!-- 一時ファイルの削除 -->
+    <delete file="${outfile}.tmp"/>
+  </target>
 
-	<!-- 依存関係を解決する deps.js のビルド -->
-	<target name="deps" description="依存関係を解決する deps.js を作成する" >
-		<exec dir="${src}" executable="python" failonerror="true">
-			<arg line="../${vendor}/google-closure-library/closure/bin/build/depswriter.py" />
-			<arg line="--root_with_prefix=&quot;. ../../../../src&quot;" />
-			<arg line="--output_file=deps.js " />
-		</exec>
-	</target>
+  <!-- compiler help -->
+  <target name="help">
+    <java jar="${compiler}" fork="true" failonerror="true">
+      <arg line="--help"/>
+    </java>
+  </target>
 
-	<!-- Zlib の単体ビルド -->
-	<target name="zlib" depends="deps" description="Zlib(RFC1950), Deflate(RFC1951) 部分の独立ビルドを行う" >
-		<!-- 出力ファイル名 -->
-		<property name="outfile" value="${bin}/zlib.deflate.min.js" />
-		<!-- ビルド(出力先は一時ファイル) -->
-		<exec dir="${src}" executable="python" failonerror="true">
-			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
-			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
-			<arg line="-f &quot;--warning_level=VERBOSE&quot;" />
-			<!--
-			XXX: ADVANCED_OPTIMIZATIONS でビルドすると実行速度が著しく低下する事がある.
-			<arg line="-f &quot;-compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
-			-->
-			<arg line="-f &quot;--externs=./Zlib/externs.js&quot;" />
-			<arg line="-f &quot;--define=goog.DEBUG=false&quot;" />
-			<arg line="-f &quot;--output_wrapper='(function() {%output%})();'&quot;" />
-			<arg line="--root=../${vendor}/google-closure-library/closure" />
-			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
-			<arg line="--root=." />
-			<arg line="--namespace=Zlib" />
-			<arg line="-o compiled" />
-			<arg line="--output_file=../${outfile}.tmp" />
-		</exec>
-		<!-- ライセンスとビルドされたファイルをプロパティとして読み込む -->
-		<loadfile property="license" srcfile="${src}/Zlib/LICENSE" />
-		<loadfile property="output" srcfile="${outfile}.tmp" />
-		<!-- ライセンスとビルドされたファイルの結合 -->
-		<echo file="${outfile}" append="no" message="${license}" />
-		<echo file="${outfile}" append="yes" message="${output}"/>
-		<fixcrlf file="${outfile}" eol="unix" eof="remove" />
-		<!-- 一時ファイルの削除 -->
-		<delete file="${outfile}.tmp" />
-	</target>
+  <!-- 全て作成 -->
+  <target name="all" depends="build" />
 
-	<!-- デバッグ版のビルド -->
-	<target name="debug" depends="deps" description="デバッグ版のファイル debug.js を作成する" >
-		<!-- 出力ファイル名 -->
-		<property name="outfile" value="${bin}/canvastool.pngencoder.debug.js" />
-		<!-- ビルド(出力先は一時ファイル) -->
-		<exec dir="${src}" executable="python" failonerror="true">
-			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
-			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
-			<arg line="-f &quot;--warning_level=VERBOSE&quot;" />
-			<!--
-			XXX: ADVANCED_OPTIMIZATIONS でビルドすると実行速度が著しく低下する事がある.
-			<arg line="-f &quot;-compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
-			-->
-			<arg line="-f &quot;--externs=./CanvasTool/externs.js&quot;" />
-			<arg line="-f &quot;--output_wrapper='(function() {%output%})();'&quot;" />
-			<arg line="-f &quot;--define='Zlib.Deflate.NO_EXPORT=true'&quot;" />
-			<arg line="-f &quot;--define='CanvasTool.PngEncoder.NO_EXPORT=false'&quot;" />
-			<arg line="--root=../${vendor}/google-closure-library/closure" />
-			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
-			<arg line="--root=." />
-			<arg line="--namespace=CanvasTool.PngEncoder" />
-			<arg line="-o compiled" />
-			<arg line="--output_file=../${outfile}.tmp" />
-		</exec>
-		<!-- ライセンスとビルドされたファイルをプロパティとして読み込む -->
-		<loadfile property="license" srcfile="${src}/CanvasTool/LICENSE" />
-		<loadfile property="output" srcfile="${outfile}.tmp" />
-		<!-- ライセンスとビルドされたファイルの結合 -->
-		<echo file="${outfile}" append="no" message="${license}" />
-		<echo file="${outfile}" append="yes" message="${output}"/>
-		<fixcrlf file="${outfile}" eol="unix" eof="remove" />
-		<!-- 一時ファイルの削除 -->
-		<delete file="${outfile}.tmp" />
-	</target>
+  <!--  削除 -->
+  <target name="clean">
+    <delete file="${depend}"/>
+    <delete dir="${bin}"/>
+  </target>
 
-	<!-- リリース版のビルド -->
-	<target name="release" depends="deps" description="リリース版のファイル release.js を作成する" >
-		<!-- 出力ファイル名 -->
-		<property name="outfile" value="${bin}/canvastool.pngencoder.min.js" />
-		<!-- ビルド(出力先は一時ファイル) -->
-		<exec dir="${src}" executable="python" failonerror="true">
-			<arg line="../${vendor}/google-closure-library/closure/bin/build/closurebuilder.py" />
-			<arg line="-c ../${vendor}/google-closure-compiler/compiler.jar" />
-			<arg line="-f &quot;--warning_level=VERBOSE&quot;" />
-			<!--
-			XXX: ADVANCED_OPTIMIZATIONS でビルドすると実行速度が著しく低下する事がある.
-			<arg line="-f &quot;-compilation_level=ADVANCED_OPTIMIZATIONS&quot;" />
-			-->
-			<arg line="-f &quot;--externs=./CanvasTool/externs.js&quot;" />
-			<arg line="-f &quot;--output_wrapper='(function() {%output%})();'&quot;" />
-			<arg line="-f &quot;--define='Zlib.Deflate.NO_EXPORT=true'&quot;" />
-			<arg line="-f &quot;--define='CanvasTool.PngEncoder.NO_EXPORT=false'&quot;" />
-			<arg line="-f &quot;--define=goog.DEBUG=false&quot;" />
-			<arg line="--root=../${vendor}/google-closure-library/closure" />
-			<arg line="--root=../${vendor}/google-closure-library/third_party/closure" />
-			<arg line="--root=." />
-			<arg line="--namespace=CanvasTool.PngEncoder" />
-			<arg line="-o compiled" />
-			<arg line="--output_file=../${outfile}.tmp" />
-		</exec>
-		<!-- ライセンスとビルドされたファイルをプロパティとして読み込む -->
-		<loadfile property="license" srcfile="${src}/CanvasTool/LICENSE" />
-		<loadfile property="output" srcfile="${outfile}.tmp" />
-		<!-- ライセンスとビルドされたファイルの結合 -->
-		<echo file="${outfile}" append="no" message="${license}" />
-		<echo file="${outfile}" append="yes" message="${output}"/>
-		<fixcrlf file="${outfile}" eol="unix" eof="remove" />
-		<!-- 一時ファイルの削除 -->
-		<delete file="${outfile}.tmp" />
-	</target>
-
-	<!-- 全て作成 -->
-	<target name="all" depends="zlib,debug,release"></target>
-
-	<!--  削除 -->
-	<target name="clean">
-		<delete file="${src}/deps.js" />
-		<delete file="${src}/canvastool.pngencoder.debug.js" />
-		<delete file="${src}/canvastool.pngencoder.min.js" />
-	</target>
-
-	<!-- リビルド -->
-	<target name="rebuild" depends="clean,all"></target>
+  <!-- リビルド -->
+  <target name="rebuild" depends="clean,all"/>
 </project>
+<!-- vim: set expandtab ts=2 sw=2: -->

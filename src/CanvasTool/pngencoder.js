@@ -1,47 +1,12 @@
 /**
- * JavaScript PNG Encoder
- *
- * The MIT License
- *
- * Copyright (c) 2011 imaya
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
-/**
  * @fileoverview JavaScript による PNG Encoder の実装.
  * @see http://www.w3.org/TR/PNG/
  */
 
 goog.provide('CanvasTool.PngEncoder');
-goog.provide('CanvasTool.PngEncoder.ChunkType');
-goog.provide('CanvasTool.PngEncoder.CompressionFlag');
-goog.provide('CanvasTool.PngEncoder.CompressionMethod');
-goog.provide('CanvasTool.PngEncoder.ColourType');
-goog.provide('CanvasTool.PngEncoder.FilterMethod');
-goog.provide('CanvasTool.PngEncoder.BasicFilterType');
-goog.provide('CanvasTool.PngEncoder.InterlaceMethod');
-goog.provide('CanvasTool.PngEncoder.RenderingIntent');
-goog.provide('CanvasTool.PngEncoder.UnitSpecifier');
 
-goog.require('Zlib');
-
+goog.require('Zlib.Deflate');
+goog.require('Zlib.CRC32');
 
 goog.scope(function() {
 
@@ -73,18 +38,18 @@ CanvasTool.PngEncoder = function(canvas, opt_param) {
 
     this.data = ctx.getImageData(0, 0, width, height).data;
   } else if (typeof(canvas.length) === 'number') {
-    if (typeof(opt_param) !== 'object') {
+    if (typeof opt_param !== 'object') {
       throw new Error('need opt_param object');
     }
-    if (typeof(opt_param.width) !== 'number') {
+    if (typeof opt_param['width'] !== 'number') {
       throw new Error('width property not found');
     }
-    if (typeof(opt_param.height) !== 'number') {
+    if (typeof opt_param['height'] !== 'number') {
       throw new Error('height property not found');
     }
 
-    width = opt_param.width;
-    height = opt_param.height;
+    width = opt_param['width'];
+    height = opt_param['height'];
     this.data = canvas;
   } else {
     throw new Error('invalid arguments');
@@ -123,37 +88,49 @@ function(width, height, opt_param) {
    * ビット深度
    * @type {!number}
    */
-  this.bitDepth = 8;
+  this.bitDepth = (typeof opt_param['bitDepth'] === 'number') ?
+    opt_param['bitDepth'] : 8;
 
   /**
    * 色空間
    * @type {!CanvasTool.PngEncoder.ColourType}
    */
-  this.colourType = CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA;
+  this.colourType = (typeof opt_param['colourType'] === 'number') ?
+    opt_param['colourType'] :
+    CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA;
 
   /**
    * 圧縮方法
    * @type {!CanvasTool.PngEncoder.CompressionMethod}
    */
-  this.compressionMethod = CanvasTool.PngEncoder.CompressionMethod.DEFLATE;
+  this.compressionMethod =
+    (typeof opt_param['compressionMethod'] === 'number') ?
+    opt_param['compressionMethod'] :
+    CanvasTool.PngEncoder.CompressionMethod.DEFLATE;
 
   /**
    * フィルタ方法
    * @type {!CanvasTool.PngEncoder.FilterMethod}
    */
-  this.filterMethod = CanvasTool.PngEncoder.FilterMethod.BASIC;
+  this.filterMethod = (typeof opt_param['filterMethod'] === 'number') ?
+    opt_param['filterMethod'] :
+    CanvasTool.PngEncoder.FilterMethod.BASIC;
 
   /**
    * 基本フィルタのタイプ
    * @type {!CanvasTool.PngEncoder.BasicFilterType}
    */
-  this.filterType = CanvasTool.PngEncoder.BasicFilterType.NONE;
+  this.filterType = (typeof opt_param['filterType'] === 'number') ?
+    opt_param['filterType'] :
+    CanvasTool.PngEncoder.BasicFilterType.NONE;
 
   /**
    * インタレース方法
    * @type {!CanvasTool.PngEncoder.InterlaceMethod}
    */
-  this.interlaceMethod = CanvasTool.PngEncoder.InterlaceMethod.NONE;
+  this.interlaceMethod = (typeof opt_param['interlaceMethod'] === 'number') ?
+    opt_param['interlaceMethod'] :
+    CanvasTool.PngEncoder.InterlaceMethod.NONE;
 
   /**
    * ガンマ値 ( undefined の場合 gAMA チャンクは付与されない)
@@ -262,12 +239,7 @@ function(width, height, opt_param) {
    * Deflate 設定
    * @type {!Object}
    */
-  this.deflate;
-
-  // パラメータによる設定の適用
-  for (param in opt_param) {
-    this[param] = opt_param[param];
-  }
+  this.deflateOption = opt_param['deflateOption'];
 
   /**
    * フィルタメソッド
@@ -370,8 +342,7 @@ CanvasTool.PngEncoder.CompressionMethod = {
 
 /**
  * 色空間の定義
- * 1 ビット目(0x01)が立っていればパレット使用,
- * 2 ビット目(0x02)が立っていればカラー,
+ * 1 ビット目(0x01)が立っていればパレット使用, * 2 ビット目(0x02)が立っていればカラー,
  * 3 ビット目(0x04)が立っていればαチャンネル付き
  * @enum {number}
  */
@@ -462,58 +433,6 @@ CanvasTool.PngEncoder.GreenWeight_ = 0.58661;
  * @private
  */
 CanvasTool.PngEncoder.BlueWeight_ = 0.11448;
-
-/**
- * CRC32 で使用するテーブル
- * @type {!Array.<number>}
- * @const
- * @private
- */
-CanvasTool.PngEncoder.Crc32Table_ = [
-  0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
-  0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
-  0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
-  0xf3b97148, 0x84be41de, 0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7,
-  0x136c9856, 0x646ba8c0, 0xfd62f97a, 0x8a65c9ec, 0x14015c4f, 0x63066cd9,
-  0xfa0f3d63, 0x8d080df5, 0x3b6e20c8, 0x4c69105e, 0xd56041e4, 0xa2677172,
-  0x3c03e4d1, 0x4b04d447, 0xd20d85fd, 0xa50ab56b, 0x35b5a8fa, 0x42b2986c,
-  0xdbbbc9d6, 0xacbcf940, 0x32d86ce3, 0x45df5c75, 0xdcd60dcf, 0xabd13d59,
-  0x26d930ac, 0x51de003a, 0xc8d75180, 0xbfd06116, 0x21b4f4b5, 0x56b3c423,
-  0xcfba9599, 0xb8bda50f, 0x2802b89e, 0x5f058808, 0xc60cd9b2, 0xb10be924,
-  0x2f6f7c87, 0x58684c11, 0xc1611dab, 0xb6662d3d, 0x76dc4190, 0x01db7106,
-  0x98d220bc, 0xefd5102a, 0x71b18589, 0x06b6b51f, 0x9fbfe4a5, 0xe8b8d433,
-  0x7807c9a2, 0x0f00f934, 0x9609a88e, 0xe10e9818, 0x7f6a0dbb, 0x086d3d2d,
-  0x91646c97, 0xe6635c01, 0x6b6b51f4, 0x1c6c6162, 0x856530d8, 0xf262004e,
-  0x6c0695ed, 0x1b01a57b, 0x8208f4c1, 0xf50fc457, 0x65b0d9c6, 0x12b7e950,
-  0x8bbeb8ea, 0xfcb9887c, 0x62dd1ddf, 0x15da2d49, 0x8cd37cf3, 0xfbd44c65,
-  0x4db26158, 0x3ab551ce, 0xa3bc0074, 0xd4bb30e2, 0x4adfa541, 0x3dd895d7,
-  0xa4d1c46d, 0xd3d6f4fb, 0x4369e96a, 0x346ed9fc, 0xad678846, 0xda60b8d0,
-  0x44042d73, 0x33031de5, 0xaa0a4c5f, 0xdd0d7cc9, 0x5005713c, 0x270241aa,
-  0xbe0b1010, 0xc90c2086, 0x5768b525, 0x206f85b3, 0xb966d409, 0xce61e49f,
-  0x5edef90e, 0x29d9c998, 0xb0d09822, 0xc7d7a8b4, 0x59b33d17, 0x2eb40d81,
-  0xb7bd5c3b, 0xc0ba6cad, 0xedb88320, 0x9abfb3b6, 0x03b6e20c, 0x74b1d29a,
-  0xead54739, 0x9dd277af, 0x04db2615, 0x73dc1683, 0xe3630b12, 0x94643b84,
-  0x0d6d6a3e, 0x7a6a5aa8, 0xe40ecf0b, 0x9309ff9d, 0x0a00ae27, 0x7d079eb1,
-  0xf00f9344, 0x8708a3d2, 0x1e01f268, 0x6906c2fe, 0xf762575d, 0x806567cb,
-  0x196c3671, 0x6e6b06e7, 0xfed41b76, 0x89d32be0, 0x10da7a5a, 0x67dd4acc,
-  0xf9b9df6f, 0x8ebeeff9, 0x17b7be43, 0x60b08ed5, 0xd6d6a3e8, 0xa1d1937e,
-  0x38d8c2c4, 0x4fdff252, 0xd1bb67f1, 0xa6bc5767, 0x3fb506dd, 0x48b2364b,
-  0xd80d2bda, 0xaf0a1b4c, 0x36034af6, 0x41047a60, 0xdf60efc3, 0xa867df55,
-  0x316e8eef, 0x4669be79, 0xcb61b38c, 0xbc66831a, 0x256fd2a0, 0x5268e236,
-  0xcc0c7795, 0xbb0b4703, 0x220216b9, 0x5505262f, 0xc5ba3bbe, 0xb2bd0b28,
-  0x2bb45a92, 0x5cb36a04, 0xc2d7ffa7, 0xb5d0cf31, 0x2cd99e8b, 0x5bdeae1d,
-  0x9b64c2b0, 0xec63f226, 0x756aa39c, 0x026d930a, 0x9c0906a9, 0xeb0e363f,
-  0x72076785, 0x05005713, 0x95bf4a82, 0xe2b87a14, 0x7bb12bae, 0x0cb61b38,
-  0x92d28e9b, 0xe5d5be0d, 0x7cdcefb7, 0x0bdbdf21, 0x86d3d2d4, 0xf1d4e242,
-  0x68ddb3f8, 0x1fda836e, 0x81be16cd, 0xf6b9265b, 0x6fb077e1, 0x18b74777,
-  0x88085ae6, 0xff0f6a70, 0x66063bca, 0x11010b5c, 0x8f659eff, 0xf862ae69,
-  0x616bffd3, 0x166ccf45, 0xa00ae278, 0xd70dd2ee, 0x4e048354, 0x3903b3c2,
-  0xa7672661, 0xd06016f7, 0x4969474d, 0x3e6e77db, 0xaed16a4a, 0xd9d65adc,
-  0x40df0b66, 0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
-  0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605, 0xcdd70693,
-  0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
-  0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
-];
 
 /**
  * Adam7 で使用する、各パスの初期位置とステップ数のテーブル
@@ -877,7 +796,9 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
 
       // パレット数のチェック
       if ((palette.length / 3) > (1 << this.bitDepth)) {
-        throw new Error('over ' + (1 << this.bitDepth) + ' colors');
+        throw new Error(
+          'over ' + (1 << this.bitDepth) + ' colors: ' + (palette.length / 3)
+        );
       }
 
       // ヒストグラムの初期化
@@ -1054,7 +975,7 @@ CanvasTool.PngEncoder.prototype.makeiCCP_ = function(iccp) {
   // profile
   switch (iccp.compressionMethod) {
     case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-      push_(data, Zlib.Deflate.compress(iccp.profile));
+      push_(data, new Zlib.Deflate(iccp.profile, this.deflateOption).compress());
       break;
     default:
       throw new Error('unknown ICC Profile compression method');
@@ -1257,8 +1178,8 @@ CanvasTool.PngEncoder.prototype.makesPLT_ = function(splt, hist) {
  * @private
  */
 CanvasTool.PngEncoder.prototype.makePLTE_ = function(palette) {
-  if (palette.length > 256) {
-    throw new Error('over 256 colors');
+  if (palette.length / 3 > 256) {
+    throw new Error('over 256 colors: ' + (palette.length / 3));
   }
 
   return this.makeChunk_(
@@ -1343,7 +1264,7 @@ CanvasTool.PngEncoder.prototype.makezTXt_ = function(text) {
   // data
   switch (text.compressionMethod) {
     case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-      push_(data, Zlib.Deflate.compress(bytearray_(text.text), this.deflate));
+      push_(data, new Zlib.Deflate(bytearray_(text.text), this.deflateOption).compress());
       break;
     default:
       throw new Error('unknown compression method');
@@ -1387,8 +1308,8 @@ CanvasTool.PngEncoder.prototype.makeiTXt_ = function(text) {
     // text compression
     switch (text.compressionMethod) {
       case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-        compressedText =
-          Zlib.Deflate.compress(bytearray_(utf8_(text.text)), this.deflate);
+        compressedText = new
+          Zlib.Deflate(bytearray_(utf8_(text.text)), this.deflateOption).compress();
         break;
       default:
         throw new Error('unknown compression method');
@@ -1513,7 +1434,7 @@ CanvasTool.PngEncoder.prototype.makeIDAT_ = function(pixelArray) {
   // データの圧縮
   switch (this.compressionMethod) {
     case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-      idat = Zlib.Deflate.compress(idat, this.deflate);
+      idat = new Zlib.Deflate(idat, this.deflateOption).compress();
       break;
     default:
       throw new Error('unknown compression method');
@@ -1912,28 +1833,15 @@ CanvasTool.PngEncoder.prototype.paethPredictor_ = function(a, b, c) {
  * @private
  */
 CanvasTool.PngEncoder.prototype.slice_ = function(arraylike, start, length) {
-  var result, arraylength = arraylike.length;
-
-  if (arraylike instanceof Array) {
-    return arraylike.slice(start, start + length);
-  }
-
-  result = [];
-
-  for (var i = 0; i < length; i++) {
-    if (start + i >= arraylength) {
-      break;
-    }
-    result.push(arraylike[start + i]);
-  }
-
-  return result;
+  return typeof arraylike.slice === 'function' ?
+    arraylike.slice(start, start + length) :
+    Array.prototype.slice.call(arraylike, start, start + length);
 };
 
 /**
  * チャンクの作成
  * @param {!CanvasTool.PngEncoder.ChunkType} type Chunk type.
- * @param {!Array} data Chunk data byte array.
+ * @param {!(Array|Uint8Array)} data Chunk data byte array.
  * @return {!Array} Chunk byte array.
  * @private
  */
@@ -1949,7 +1857,7 @@ CanvasTool.PngEncoder.prototype.makeChunk_ = function(type, data) {
   // CRC
   push_(crcTarget, type);
   push_(crcTarget, data);
-  push_(chunk, this.networkByteOrder_(this.getCRC32_(crcTarget), 4));
+  push_(chunk, this.networkByteOrder_(Zlib.CRC32.calc(crcTarget), 4));
 
   return chunk;
 };
@@ -1978,34 +1886,6 @@ CanvasTool.PngEncoder.prototype.networkByteOrder_ = function(number, size) {
   }
 
   return tmp.reverse();
-};
-
-/**
- * CRC32ハッシュ値を更新
- * @param {!Array} data data byte array.
- * @param {number} crc CRC32.
- * @return {number} CRC32.
- * @private
- */
-CanvasTool.PngEncoder.prototype.updateCRC32_ = function(data, crc) {
-  var octet = 0;
-
-  for (var i = 0, l = data.length; i < l; i++) {
-    octet = (crc ^ data[i]) & 0xff;
-    crc = (crc >>> 8) ^ CanvasTool.PngEncoder.Crc32Table_[octet];
-  }
-
-  return crc;
-};
-
-/**
- * CRC32 ハッシュ値を取得
- * @param {!Array} data data byte array.
- * @return {number} CRC32.
- * @private
- */
-CanvasTool.PngEncoder.prototype.getCRC32_ = function(data) {
-  return this.updateCRC32_(data, 0xffffffff) ^ 0xffffffff;
 };
 
 /**
@@ -2062,7 +1942,7 @@ CanvasTool.PngEncoder.prototype.fromCharCode_ = function(code) {
 /**
  * 配列の末尾への結合を破壊的に行う.
  * @param {!Array} dst 結合先となる配列.
- * @param {!Array} src 結合元となる配列.
+ * @param {!(Array|Uint8Array)} src 結合元となる配列.
  */
 function push_(dst, src) {
   var i = 0, dl = src.length, sl = src.length, pushImpl = (!!dst.push);
@@ -2150,11 +2030,20 @@ function isLatin1Printable_(charCode) {
 function utf8_(str) {
   return unescape(encodeURIComponent(str));
 }
+});
 
 
 //*****************************************************************************
 // export
 //*****************************************************************************
+
+function exportEnum(path, keyValue) {
+  var key;
+
+  for (key in keyValue) {
+    goog.exportSymbol([path, key].join('.'), keyValue[key]);
+  }
+}
 
 /**
  * @define {boolean} no export symbols.
@@ -2166,46 +2055,55 @@ if (!CanvasTool.PngEncoder.NO_EXPORT) {
     'CanvasTool.PngEncoder',
     CanvasTool.PngEncoder
   );
-  goog.exportSymbol(
-    'CanvasTool.PngEncoder.ChunkType',
-    CanvasTool.PngEncoder.ChunkType
-  );
-  goog.exportSymbol(
+
+  exportEnum(
     'CanvasTool.PngEncoder.CompressionMethod',
-    CanvasTool.PngEncoder.CompressionMethod
+    {
+      'DEFLATE': CanvasTool.PngEncoder.CompressionMethod.DEFLATE
+    }
   );
-  goog.exportSymbol(
+
+  exportEnum(
     'CanvasTool.PngEncoder.ColourType',
-    CanvasTool.PngEncoder.ColourType
+    {
+      'GRAYSCALE': CanvasTool.PngEncoder.ColourType.GRAYSCALE,
+      'TRUECOLOR': CanvasTool.PngEncoder.ColourType.TRUECOLOR,
+      'INDEXED_COLOR': CanvasTool.PngEncoder.ColourType.INDEXED_COLOR,
+      'GRAYSCALE_WITH_ALPHA': CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA,
+      'TRUECOLOR_WITH_ALPHA': CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA
+    }
   );
-  goog.exportSymbol(
+
+  exportEnum(
     'CanvasTool.PngEncoder.FilterMethod',
-    CanvasTool.PngEncoder.FilterMethod
+    {
+      'BASIC': CanvasTool.PngEncoder.FilterMethod.BASIC
+    }
   );
-  goog.exportSymbol(
+
+  exportEnum(
     'CanvasTool.PngEncoder.BasicFilterType',
-    CanvasTool.PngEncoder.BasicFilterType
+    {
+      'NONE': CanvasTool.PngEncoder.BasicFilterType.NONE,
+      'SUB': CanvasTool.PngEncoder.BasicFilterType.SUB,
+      'UP': CanvasTool.PngEncoder.BasicFilterType.UP,
+      'AVERAGE': CanvasTool.PngEncoder.BasicFilterType.AVERAGE,
+      'PAETH': CanvasTool.PngEncoder.BasicFilterType.PAETH
+    }
   );
-  goog.exportSymbol(
+
+  exportEnum(
     'CanvasTool.PngEncoder.InterlaceMethod',
-    CanvasTool.PngEncoder.InterlaceMethod
+    {
+      'NONE': CanvasTool.PngEncoder.InterlaceMethod.NONE,
+      'ADAM7': CanvasTool.PngEncoder.InterlaceMethod.ADAM7
+    }
   );
+
   goog.exportSymbol(
-    'CanvasTool.PngEncoder.RenderingIntent',
-    CanvasTool.PngEncoder.RenderingIntent
-  );
-  goog.exportSymbol(
-    'CanvasTool.PngEncoder.UnitSpecifier',
-    CanvasTool.PngEncoder.UnitSpecifier
-  );
-  goog.exportProperty(
-    CanvasTool.PngEncoder.prototype,
-    'convert',
+    'CanvasTool.PngEncoder.prototype.convert',
     CanvasTool.PngEncoder.prototype.convert
   );
 }
 
 // end of scope
-});
-
-/* vim: set expandtab ts=2 sw=2 tw=80: */
