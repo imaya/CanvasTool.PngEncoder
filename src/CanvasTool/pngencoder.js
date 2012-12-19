@@ -455,71 +455,14 @@ CanvasTool.PngEncoder.Adam7Table_ = [
  * @return {!string} PNGバイナリ.
  */
 CanvasTool.PngEncoder.prototype.convert = function(opt_canvasArray) {
-  return str_(this.makePng_());
-};
-
-/**
- * パレットの取得
- * @return {!Array.<number>} パレットの配列.
- */
-CanvasTool.PngEncoder.prototype.getPalette = function() {
-  var palette, imageInfo;
-
-  if (this.palette_ instanceof Array) {
-    return this.palette_;
-  }
-
-  imageInfo = this.makeImageArray(this.data);
-  palette = imageInfo.PLTE;
-
-  return palette.map(function(e) {
-    return e.split('').map(function(e) {
-      return e.charCodeAt(0);
-    });
-  });
-};
-
-/**
- * パラメータのバリデーション
- * @private
- */
-CanvasTool.PngEncoder.prototype.validate_ = function() {
-  var allowDepth, i, l, isArrow = false;
-
-  switch (this.colourType) {
-    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
-      allowDepth = [1, 2, 4, 8, 16];
-      break;
-    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
-      allowDepth = [1, 2, 4, 8];
-      break;
-    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
-    case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
-    case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
-      allowDepth = [8, 16];
-      break;
-    default:
-      throw new Error('invalid colour type');
-  }
-
-  for (i = 0, l = allowDepth.length; i < l; i++) {
-    if (this.bitDepth === allowDepth[i]) {
-      isArrow = true;
-      break;
-    }
-  }
-
-  if (isArrow === false) {
-    throw new Error('invalid parameter');
-  }
+  return str_(this.convertToArray());
 };
 
 /**
  * PNG の作成
  * @return {!Array} PNG バイナリ byte array.
- * @private
  */
-CanvasTool.PngEncoder.prototype.makePng_ = function() {
+CanvasTool.PngEncoder.prototype.convertToArray = function() {
   var png = [], imageInfo;
 
   imageInfo = this.makeImageArray(this.data);
@@ -622,6 +565,62 @@ CanvasTool.PngEncoder.prototype.makePng_ = function() {
   push_(png, this.makeIEND_());
 
   return png;
+};
+
+/**
+ * パレットの取得
+ * @return {!Array.<number>} パレットの配列.
+ */
+CanvasTool.PngEncoder.prototype.getPalette = function() {
+  var palette, imageInfo;
+
+  if (this.palette_ instanceof Array) {
+    return this.palette_;
+  }
+
+  imageInfo = this.makeImageArray(this.data);
+  palette = imageInfo.PLTE;
+
+  return palette.map(function(e) {
+    return e.split('').map(function(e) {
+      return e.charCodeAt(0);
+    });
+  });
+};
+
+/**
+ * パラメータのバリデーション
+ * @private
+ */
+CanvasTool.PngEncoder.prototype.validate_ = function() {
+  var allowDepth, i, l, isArrow = false;
+
+  switch (this.colourType) {
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
+      allowDepth = [1, 2, 4, 8, 16];
+      break;
+    case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
+      allowDepth = [1, 2, 4, 8];
+      break;
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
+    case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
+    case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
+      allowDepth = [8, 16];
+      break;
+    default:
+      throw new Error('invalid colour type');
+  }
+
+  for (i = 0, l = allowDepth.length; i < l; i++) {
+    if (this.bitDepth === allowDepth[i]) {
+      isArrow = true;
+      break;
+    }
+  }
+
+  if (isArrow === false) {
+    throw new Error('invalid parameter');
+  }
 };
 
 /**
@@ -2103,6 +2102,11 @@ if (!CanvasTool.PngEncoder.NO_EXPORT) {
   goog.exportSymbol(
     'CanvasTool.PngEncoder.prototype.convert',
     CanvasTool.PngEncoder.prototype.convert
+  );
+
+  goog.exportSymbol(
+    'CanvasTool.PngEncoder.prototype.convertToArray',
+    CanvasTool.PngEncoder.prototype.convertToArray
   );
 }
 
