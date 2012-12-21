@@ -8,11 +8,16 @@ goog.provide('CanvasTool.PngEncoder');
 goog.require('Zlib.Deflate');
 goog.require('Zlib.CRC32');
 
+/**
+ * @typedef {!(Array.<number>|Uint8Array)}
+ */
+var ByteArray;
+
 goog.scope(function() {
 
 /**
  * Canvas to PNG converter
- * @param {!(Element|Array|Uint8Array|CanvasPixelArray)} canvas 対象となる
+ * @param {!(Element|ByteArray|CanvasPixelArray)} canvas 対象となる
  *     Canvas エレメント, もしくはその CanvasPixelArray 互換の配列.
  * @param {!Object=} opt_param 変換オプション. canvas が Canvas エレメントの場合
  *     以外では、かならず width と height が必要となる.
@@ -22,7 +27,7 @@ CanvasTool.PngEncoder = function(canvas, opt_param) {
   var ctx, width, height;
 
   /**
-   * @type {!(Array|CanvasPixelArray|Uint8Array)}
+   * @type {!(ByteArray|CanvasPixelArray)}
    */
   this.data;
 
@@ -66,8 +71,6 @@ CanvasTool.PngEncoder = function(canvas, opt_param) {
  */
 CanvasTool.PngEncoder.prototype.setParameters =
 function(width, height, opt_param) {
-  var param;
-
   if (typeof opt_param !== 'object') {
     opt_param = {};
   }
@@ -136,7 +139,8 @@ function(width, height, opt_param) {
    * ガンマ値 ( undefined の場合 gAMA チャンクは付与されない)
    * @type {!number}
    */
-  this.gamma;
+  this.gamma = (typeof opt_param['gamma'] === 'number') ?
+    opt_param['gamma'] : void 0;
 
   /**
    * 基礎色度 ( undefined の場合 cHRM チャンクは付与されない)
@@ -151,7 +155,9 @@ function(width, height, opt_param) {
    *   blueX: number,
    *   blueY: number}}
    */
-  this.chrm;
+  this.chrm =
+    (typeof opt_param['chrm'] === 'object' && opt_param['chrm'] !== null) ?
+    opt_param['chrm'] : void 0;
 
   /**
    * 推奨パレット
@@ -164,19 +170,23 @@ function(width, height, opt_param) {
    *   num: number
    * }}
    */
-  this.splt;
+  this.splt =
+    (typeof opt_param['splt'] === 'object' && opt_param['splt'] !== null) ?
+    opt_param['splt'] : void 0;
 
   /**
    * Standard RGB colour space ( undefined の場合 sRGB チャンクは付与されない)
    * @type {!CanvasTool.PngEncoder.RenderingIntent}
    */
-  this.srgb;
+  this.srgb = (typeof opt_param['srgb'] === 'number') ?
+    opt_param['srgb'] : void 0;
 
   /**
    * Significant bits ( undefined の場合 sBIT チャンクは付与されない)
    * @type {!Array.<number>}
    */
-  this.sbit;
+  this.sbit = (opt_param['sbit'] instanceof Array) ?
+    opt_param['sbit'] : void 0;
 
   /**
    * ICC プロファイル ( undefined の場合 iCCP チャンクは付与されない)
@@ -186,13 +196,15 @@ function(width, height, opt_param) {
    *   profile: !Array
    * }}
    */
-  this.iccp;
+  this.iccp =
+    (typeof opt_param['iccp'] === 'object' && opt_param['iccp'] !== null) ?
+    opt_param['iccp'] : void 0;
 
   /**
    * Image Histogram を保存するかどうか (true で hIST チャンクを付与する)
    * @type {boolean}
    */
-  this.hist = false;
+  this.hist = opt_param['hist'] !== void 0;
 
   /**
    * Physical pixel dimensions
@@ -202,13 +214,16 @@ function(width, height, opt_param) {
    *   unit: CanvasTool.PngEncoder.UnitSpecifier
    * }}
    */
-  this.phys;
+  this.phys =
+    (typeof opt_param['phys'] === 'object' && opt_param['phys'] !== null) ?
+    opt_param['phys'] : void 0;
 
   /**
    * Image last-modification time
    * @type {Date}
    */
-  this.time;
+  this.time = (opt_param['time'] instanceof Date) ?
+    opt_param['time'] : void 0;
 
   /**
    * Textual data
@@ -217,7 +232,9 @@ function(width, height, opt_param) {
    *   text: string
    * }}
    */
-  this.text;
+  this.text =
+    (typeof opt_param['text'] === 'object' && opt_param['text'] !== null) ?
+    opt_param['text'] : void 0;
 
   /**
    * Compressed textual data
@@ -227,13 +244,29 @@ function(width, height, opt_param) {
    *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod
    * }}
    */
-  this.ztxt;
+  this.ztxt =
+    (typeof opt_param['ztxt'] === 'object' && opt_param['ztxt'] !== null) ?
+    opt_param['ztxt'] : void 0;
+
+  /**
+   * International textual data
+   * @type {?{
+   *   keyword: string,
+   *   text: string,
+   *   lang: string,
+   *   translatedKeyword: string,
+   *   compressionMethod: ?CanvasTool.PngEncoder.CompressionMethod
+   * }} textData text data.
+   */
+  this.itxt =
+    (typeof opt_param['itxt'] === 'object' && opt_param['itxt'] !== null) ?
+      opt_param['itxt'] : void 0;
 
   /**
    * パレット使用時にαチャンネルを保存するか
    * @type {boolean}
    */
-  this.trns = true;
+  this.trns = opt_param['trns'];
 
   /**
    * Deflate 設定
@@ -243,14 +276,14 @@ function(width, height, opt_param) {
 
   /**
    * フィルタメソッド
-   * @type {function(!Array, number):!Array}
+   * @type {function(ByteArray, number):ByteArray}
    * @private
    */
   this.filter_;
 
   /**
    * フィルタ(Up, Average, Paeth)で使用する直前のライン
-   * @type {Array}
+   * @type {?ByteArray}
    * @private
    */
   this.prevLine_ = null;
@@ -297,7 +330,7 @@ function(width, height, opt_param) {
 
 /**
  * チャンクタイプ
- * @enum {!Array.<number>}
+ * @enum {ByteArray}
  */
 CanvasTool.PngEncoder.ChunkType = {
   // 必須チャンク
@@ -408,31 +441,30 @@ CanvasTool.PngEncoder.UnitSpecifier = {
  * PNG フォーマットのシグネチャ
  * @const
  */
-CanvasTool.PngEncoder.Signature = [137, 80, 78, 71, 13, 10, 26, 10];
+CanvasTool.PngEncoder.Signature = (function(signature) {
+  return USE_TYPEDARRAY ? new Uint8Array(signature) : signature;
+})([137, 80, 78, 71, 13, 10, 26, 10]);
 
 /**
  * 輝度変換に使用する赤の重み
  * @type {number}
  * @const
- * @private
  */
-CanvasTool.PngEncoder.RedWeight_ = 0.29891;
+CanvasTool.PngEncoder.RedWeight = 0.29891;
 
 /**
  * 輝度変換に使用する緑の重み
  * @type {number}
  * @const
- * @private
  */
-CanvasTool.PngEncoder.GreenWeight_ = 0.58661;
+CanvasTool.PngEncoder.GreenWeight = 0.58661;
 
 /**
  * 輝度変換に使用する青の重み
  * @type {number}
  * @const
- * @private
  */
-CanvasTool.PngEncoder.BlueWeight_ = 0.11448;
+CanvasTool.PngEncoder.BlueWeight = 0.11448;
 
 /**
  * Adam7 で使用する、各パスの初期位置とステップ数のテーブル
@@ -460,7 +492,7 @@ CanvasTool.PngEncoder.prototype.convert = function(opt_canvasArray) {
 
 /**
  * PNG の作成
- * @return {!Array} PNG バイナリ byte array.
+ * @return {ByteArray} PNG バイナリ byte array.
  */
 CanvasTool.PngEncoder.prototype.convertToArray = function() {
   var png = [], imageInfo;
@@ -468,55 +500,55 @@ CanvasTool.PngEncoder.prototype.convertToArray = function() {
   imageInfo = this.makeImageArray(this.data);
 
   // signature
-  push_(png, CanvasTool.PngEncoder.Signature);
+  png.push(CanvasTool.PngEncoder.Signature);
 
   // IHDR
-  push_(png, this.makeIHDR_());
+  png.push(this.makeIHDR_());
 
   // cHRM
   if (typeof(this.chrm) === 'object' && this.chrm !== null) {
-    push_(png, this.makecHRM_(this.chrm));
+    png.push(this.makecHRM_(this.chrm));
   }
 
   // gAMA
   if (typeof(this.gamma) === 'number') {
-    push_(png, this.makegAMA_(this.gamma));
+    png.push(this.makegAMA_(this.gamma));
   }
 
   // iCCP
   if (typeof(this.iccp) === 'object' && this.iccp !== null) {
-    push_(png, this.makeiCCP_(this.iccp));
+    png.push(this.makeiCCP_(this.iccp));
   }
 
   // sBIT
   if (this.sbit instanceof Array) {
-    push_(png, this.makesBIT_(this.sbit));
+    png.push(this.makesBIT_(this.sbit));
   }
 
   // sRGB
   if (typeof(this.srgb) === 'number') {
-    push_(png, this.makesRGB_(this.srgb));
+    png.push(this.makesRGB_(this.srgb));
   }
 
   // PLTE
   switch (this.colourType) {
     case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
-      push_(png, this.makePLTE_(imageInfo.PLTE));
+      png.push(this.makePLTE_(imageInfo.PLTE));
       this.palette_ = imageInfo.PLTE;
 
       // bKGD
       if (this.bkgd instanceof Array) {
-        push_(png, this.makebKGD_(this.bkgd, this.palette_));
+        png.push(this.makebKGD_(this.bkgd, this.palette_));
       }
 
       // hIST
       if (this.hist) {
-        push_(png, this.makehIST_(this.paletteHistogram_));
+        png.push(this.makehIST_(this.paletteHistogram_));
       }
 
       // tRNS
       if (this.trns) {
-        push_(png, this.maketRNS_(imageInfo.tRNS));
+        png.push(this.maketRNS_(imageInfo.tRNS));
       }
       break;
     case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
@@ -530,41 +562,41 @@ CanvasTool.PngEncoder.prototype.convertToArray = function() {
 
   // pHYs
   if (typeof(this.phys) === 'object' && this.phys !== null) {
-    push_(png, this.makepHYs_(this.phys));
+    png.push(this.makepHYs_(this.phys));
   }
 
   // sPLT
   if (typeof(this.splt) === 'object' && this.splt !== null) {
-    push_(png, this.makesPLT_(this.splt, this.colourHistogram_));
+    png.push(this.makesPLT_(this.splt, this.colourHistogram_));
   }
 
   // tIME
   if (this.time instanceof Date) {
-    push_(png, this.maketIME_(this.time));
+    png.push(this.maketIME_(this.time));
   }
 
   // tEXt
   if (typeof(this.text) === 'object' && this.text !== null) {
-    push_(png, this.maketEXt_(this.text));
+    png.push(this.maketEXt_(this.text));
   }
 
   // zTXt
   if (typeof(this.ztxt) === 'object' && this.ztxt !== null) {
-    push_(png, this.makezTXt_(this.ztxt));
+    png.push(this.makezTXt_(this.ztxt));
   }
 
   // iTXt
   if (typeof(this.itxt) === 'object' && this.itxt !== null) {
-    push_(png, this.makeiTXt_(this.itxt));
+    png.push(this.makeiTXt_(this.itxt));
   }
 
   // IDAT
-  push_(png, this.makeIDAT_(imageInfo.IDAT));
+  png.push(this.makeIDAT_(imageInfo.IDAT));
 
   // IEND
-  push_(png, this.makeIEND_());
+  png.push(this.makeIEND_());
 
-  return png;
+  return concat_(png);
 };
 
 /**
@@ -625,19 +657,30 @@ CanvasTool.PngEncoder.prototype.validate_ = function() {
 
 /**
  * Image Header
- * @return {!Array} IHDR チャンクバイナリ byte array.
+ * @return {ByteArray} IHDR チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeIHDR_ = function() {
-  var data = [];
+  var data = new (USE_TYPEDARRAY ? Uint8Array : Array)(13+12);
+  var pos = 8;
 
-  push_(data, this.networkByteOrder_(this.width, 4));
-  push_(data, this.networkByteOrder_(this.height, 4));
-  push_(data, this.networkByteOrder_(this.bitDepth, 1));
-  push_(data, this.networkByteOrder_(this.colourType, 1));
-  push_(data, this.networkByteOrder_(this.compressionMethod, 1));
-  push_(data, this.networkByteOrder_(this.filterMethod, 1));
-  push_(data, this.networkByteOrder_(this.interlaceMethod, 1));
+  // width
+  data[pos++] = (this.width >> 24) & 0xff;
+  data[pos++] = (this.width >> 16) & 0xff;
+  data[pos++] = (this.width >>  8) & 0xff;
+  data[pos++] = (this.width      ) & 0xff;
+
+  // height
+  data[pos++] = (this.height >> 24) & 0xff;
+  data[pos++] = (this.height >> 16) & 0xff;
+  data[pos++] = (this.height >>  8) & 0xff;
+  data[pos++] = (this.height      ) & 0xff;
+
+  data[pos++] = this.bitDepth;
+  data[pos++] = this.colourType;
+  data[pos++] = this.compressionMethod;
+  data[pos++] = this.filterMethod;
+  data[pos  ] = this.interlaceMethod;
 
   return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.IHDR, data);
 };
@@ -649,37 +692,51 @@ CanvasTool.PngEncoder.prototype.makeIHDR_ = function() {
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
-  var pixelArray = [], img = canvasArray,
+  var pixelArray = [],
       saveAlpha = this.trns,
       depth = this.bitDepth,
       palette = [], alphaPalette = [], paletteTemp = {}, revTable = {},
-      paletteKeys = [],
       red = 0, green = 0, blue = 0, alpha = 0,
       histIndex = {}, hi = 0, hl = 0,
-      color, withAlpha, index, length, tmp, max, mod;
+      color, index, length, tmp;
+  /** @type {number} */
+  var pos = 0;
+  /** @type {Array.<string>} */
+  var paletteKeys;
+  /**
+   * @type {!Array.<{
+   *   red: number,
+   *   green: number,
+   *   blue: number,
+   *   alpha: number,
+   *   count: number
+   * }>} */
+  var histogram = this.colourHistogram_;
+  /** @type {boolean} */
+  var withAlpha = (this.colourType & 0x04) !== 0;
 
   /*
    * パレットの作成を ColourType に関わらず行っているのは
    * 減色パレットを作成するときの為
    */
   for (index = 0, length = canvasArray.length; index < length; index += 4) {
-    if (saveAlpha) {
-      color = this.rgba2str_(this.slice_(canvasArray, index, 4));
-    } else {
-      color = this.rgb2str_(this.slice_(canvasArray, index, 3));
-    }
-    paletteTemp[color] = (paletteTemp[color] | 0) + 1;
+    // 色の取得
+    red   = canvasArray[index];
+    green = canvasArray[index + 1];
+    blue  = canvasArray[index + 2];
+    alpha = canvasArray[index + 3];
+
+    // パレット
+    color = saveAlpha ?
+      rgba2str_(red, green, blue, alpha) :
+      rgb2str_(red, green, blue);
+    paletteTemp[color] = (paletteTemp[color] || 0) + 1;
 
     // ヒストグラム
-    red = canvasArray[index];
-    green = canvasArray[index + 1];
-    blue = canvasArray[index + 2];
-    alpha = canvasArray[index + 3];
     hi = ((red << 8 | green) << 8 | blue) << 8 | alpha;
-
-    if (histIndex[hi] === undefined) {
-      hl = this.colourHistogram_.length;
-      this.colourHistogram_.push({
+    if (histIndex[hi] === void 0) {
+      hl = histogram.length;
+      histogram.push({
         red: red,
         green: green,
         blue: blue,
@@ -688,11 +745,8 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
       });
       histIndex[hi] = hl;
     }
-
-    this.colourHistogram_[histIndex[hi]].count++;
+    histogram[histIndex[hi]].count++;
   }
-
-  withAlpha = (this.colourType & 0x04) > 0;
 
   /*
    * ColourType 別に IDAT の未圧縮データを作成する
@@ -701,33 +755,35 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
     // Grayscale
     case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
     case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
-      max = (8 / this.bitDepth);
-
       for (index = 0, length = canvasArray.length; index < length; index += 4) {
-        color = this.rgb2y_.apply(this, this.slice_(canvasArray, index, 3));
+        red   = canvasArray[index];
+        green = canvasArray[index + 1];
+        blue  = canvasArray[index + 2];
         alpha = canvasArray[index + 3];
+        color = rgb2y_(red, green, blue);
 
         if (depth < 8) {
           color >>>= (8 - depth);
           alpha >>>= (8 - depth);
         }
 
-        color = [color];
-
-        if (withAlpha) {
-          color.push(alpha);
-        }
-
-        pixelArray.push(color);
+        pixelArray[pos++] = withAlpha ? [color, alpha] : [color];
       }
       break;
     // Truecolor
     case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
     case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
       for (index = 0, length = canvasArray.length; index < length; index += 4) {
-        tmp = this.slice_(canvasArray, index, withAlpha ? 4 : 3);
-
-        pixelArray.push(tmp);
+        pixelArray[pos++] = withAlpha ? [
+         canvasArray[index    ],
+         canvasArray[index + 1],
+         canvasArray[index + 2],
+         canvasArray[index + 3]
+        ] : [
+          canvasArray[index    ],
+          canvasArray[index + 1],
+          canvasArray[index + 2]
+        ];
       }
       break;
     // Indexed-Color
@@ -735,11 +791,16 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
       // XXX: 出現回数でsortした方が良いか？
 
       // パレットの作成
-      for (color in paletteTemp) {
-        paletteKeys.push(color);
+      if (Object.keys) {
+        paletteKeys = Object.keys(paletteTemp);
+      } else {
+        for (color in paletteTemp) {
+          paletteKeys.push(color);
+        }
       }
 
-      // tRNS チャンクを付与する際はアルファ値 255 のパレットを後方に配置する
+      // tRNS チャンクの仕様では後方がアルファ値 255 ならば省略可能なため
+      // アルファ値 255 ならば後方に配置する
       if (saveAlpha) {
         paletteKeys.sort(function(a, b) {
           return (a.charCodeAt(3) < b.charCodeAt(3)) ? -1 :
@@ -783,7 +844,7 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
         if (this.bkgd.length !== 3) {
           throw new Error('wrong background-color length');
         }
-        if (!(this.rgb2str_(this.bkgd) in paletteTemp)) {
+        if (!(rgb2str_.apply(null, this.bkgd) in paletteTemp)) {
           if ((palette.length / 3) === (1 << this.bitDepth)) {
             throw new Error('can not add background-color to palette');
           }
@@ -807,13 +868,17 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
 
       // make image array
       for (index = 0, length = canvasArray.length; index < length; index += 4) {
-        if (saveAlpha) {
-          color = this.rgba2str_(this.slice_(canvasArray, index, 4));
-        } else {
-          color = this.rgb2str_(this.slice_(canvasArray, index, 3));
-        }
+        red   = canvasArray[index];
+        green = canvasArray[index + 1];
+        blue  = canvasArray[index + 2];
+        alpha = canvasArray[index + 3];
+
+        color = saveAlpha ?
+          rgba2str_(red, green, blue, alpha) :
+          rgb2str_(red, green, blue);
+
         this.paletteHistogram_[revTable[color]]++;
-        pixelArray.push([revTable[color]]);
+        pixelArray[pos++] = [revTable[color]];
       }
 
       break;
@@ -839,44 +904,107 @@ CanvasTool.PngEncoder.prototype.makeImageArray = function(canvasArray) {
  *   greenY: !number,
  *   blueX: !number,
  *   blueY: !number}} chrm 基礎色度情報.
- * @return {!Array} cHRM チャンク byte array.
+ * @return {ByteArray} cHRM チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makecHRM_ = function(chrm) {
-  var data = [];
+  /** @type {ByteArray} */
+  var chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(32 + 12);
+  /** @type {number} */
+  var pos = 8;
+  /** @type {number} */
+  var whitePointX = chrm['whitePointX'] * 100000;
+  /** @type {number} */
+  var whitePointY = chrm['whitePointY'] * 100000;
+  /** @type {number} */
+  var redX = chrm['redX'] * 100000;
+  /** @type {number} */
+  var redY = chrm['redY'] * 100000;
+  /** @type {number} */
+  var greenX = chrm['greenX'] * 100000;
+  /** @type {number} */
+  var greenY = chrm['greenY'] * 100000;
+  /** @type {number} */
+  var blueX = chrm['blueX'] * 100000;
+  /** @type {number} */
+  var blueY = chrm['blueY'] * 100000;
 
-  push_(data, this.networkByteOrder_(chrm.whitePointX * 10000 | 0, 4));
-  push_(data, this.networkByteOrder_(chrm.whitePointY * 10000 | 0, 4));
-  push_(data, this.networkByteOrder_(chrm.redX * 10000 | 0, 4));
-  push_(data, this.networkByteOrder_(chrm.redY * 10000 | 0, 4));
-  push_(data, this.networkByteOrder_(chrm.greenX * 10000 | 0, 4));
-  push_(data, this.networkByteOrder_(chrm.greenY * 10000 | 0, 4));
-  push_(data, this.networkByteOrder_(chrm.blueX * 10000 | 0, 4));
-  push_(data, this.networkByteOrder_(chrm.blueY * 10000 | 0, 4));
+  chunk[pos++] = (whitePointX >> 24) & 0xff;
+  chunk[pos++] = (whitePointX >> 16) & 0xff;
+  chunk[pos++] = (whitePointX >>  8) & 0xff;
+  chunk[pos++] = (whitePointX      ) & 0xff;
 
-  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.CHRM, data);
+  chunk[pos++] = (whitePointY >> 24) & 0xff;
+  chunk[pos++] = (whitePointY >> 16) & 0xff;
+  chunk[pos++] = (whitePointY >>  8) & 0xff;
+  chunk[pos++] = (whitePointY      ) & 0xff;
+
+  chunk[pos++] = (redX >> 24) & 0xff;
+  chunk[pos++] = (redX >> 16) & 0xff;
+  chunk[pos++] = (redX >>  8) & 0xff;
+  chunk[pos++] = (redX      ) & 0xff;
+
+  chunk[pos++] = (redY >> 24) & 0xff;
+  chunk[pos++] = (redY >> 16) & 0xff;
+  chunk[pos++] = (redY >>  8) & 0xff;
+  chunk[pos++] = (redY      ) & 0xff;
+
+  chunk[pos++] = (greenX >> 24) & 0xff;
+  chunk[pos++] = (greenX >> 16) & 0xff;
+  chunk[pos++] = (greenX >>  8) & 0xff;
+  chunk[pos++] = (greenX      ) & 0xff;
+
+  chunk[pos++] = (greenY >> 24) & 0xff;
+  chunk[pos++] = (greenY >> 16) & 0xff;
+  chunk[pos++] = (greenY >>  8) & 0xff;
+  chunk[pos++] = (greenY      ) & 0xff;
+
+  chunk[pos++] = (blueX >> 24) & 0xff;
+  chunk[pos++] = (blueX >> 16) & 0xff;
+  chunk[pos++] = (blueX >>  8) & 0xff;
+  chunk[pos++] = (blueX      ) & 0xff;
+
+  chunk[pos++] = (blueY >> 24) & 0xff;
+  chunk[pos++] = (blueY >> 16) & 0xff;
+  chunk[pos++] = (blueY >>  8) & 0xff;
+  chunk[pos  ] = (blueY      ) & 0xff;
+
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.CHRM, chunk);
 };
 
 /**
  * ガンマ値
  * @param {!number} gamma ガンマ値.
- * @return {!Array} gAMA チャンク byte array.
+ * @return {ByteArray} gAMA チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makegAMA_ = function(gamma) {
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.GAMA,
-    this.networkByteOrder_((100000 / gamma) + 0.5 | 0, 4)
-  );
+  /** @type {ByteArray} */
+  var chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(16);
+  /** @type {number} */
+  var gama = (100000 / gamma) + 0.5 | 0;
+  /** @type {number} */
+  var pos = 8;
+
+  chunk[pos++] = (gama >> 24) & 0xff;
+  chunk[pos++] = (gama >> 16) & 0xff;
+  chunk[pos++] = (gama >>  8) & 0xff;
+  chunk[pos  ] = (gama      ) & 0xff;
+
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.GAMA, chunk);
 };
+
 /**
  * Significant bits
  * @param {!Array.<number>} sbit 元データの各色の有効ビット数を格納した配列.
- * @return {!Array} sBIT チャンク byte array.
+ * @return {ByteArray} sBIT チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makesBIT_ = function(sbit) {
-  var data = [];
+  /** @type {ByteArray} */
+  var chunk;
+  /** @type {number} */
+  var pos = 8;
 
   switch (this.colourType) {
     case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
@@ -884,57 +1012,69 @@ CanvasTool.PngEncoder.prototype.makesBIT_ = function(sbit) {
       if (sbit.length !== 1) {
         throw new Error('wrong sBIT length');
       }
-      push_(data, sbit.slice(0, 1));
+      chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(1+12);
+      chunk[pos] = sbit[0];
       break;
     case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
       // red, green, blue bits
       if (sbit.length !== 3) {
         throw new Error('wrong sBIT length');
       }
-      push_(data, sbit.slice(0, 3));
+      chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(3+12);
+      chunk[pos++] = sbit[0];
+      chunk[pos++] = sbit[1];
+      chunk[pos  ] = sbit[2];
       break;
     case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       // red, green, blue bits
       if (sbit.length !== 3) {
         throw new Error('wrong sBIT length');
       }
-      push_(data, sbit.slice(0, 3));
+      chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(3+12);
+      chunk[pos++] = sbit[0];
+      chunk[pos++] = sbit[1];
+      chunk[pos  ] = sbit[2];
       break;
     case CanvasTool.PngEncoder.ColourType.GRAYSCALE_WITH_ALPHA:
       // grayscale, alpha bits
       if (sbit.length !== 2) {
         throw new Error('wrong sBIT length');
       }
-      push_(data, sbit.slice(0, 2));
+      chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(2+12);
+      chunk[pos++] = sbit[0];
+      chunk[pos  ] = sbit[1];
       break;
     case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
       // red, green, blue, alpha bits
       if (sbit.length !== 4) {
         throw new Error('wrong sBIT length');
       }
-      push_(data, sbit.slice(0, 4));
+      chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(4+12);
+      chunk[pos++] = sbit[0];
+      chunk[pos++] = sbit[1];
+      chunk[pos++] = sbit[2];
+      chunk[pos  ]= sbit[3];
       break;
     default:
       throw new Error('unknown colour type');
   }
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.SBIT,
-    data
-  );
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.SBIT, chunk);
 };
 
 /**
  * Standard RGB colour space.
  * @param {!CanvasTool.PngEncoder.RenderingIntent} ri レンダリング時の解釈仕様.
- * @return {!Array} sRGB チャンク byte array.
+ * @return {ByteArray} sRGB チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makesRGB_ = function(ri) {
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.SRGB,
-    [ri]
-  );
+  /** @type {ByteArray} */
+  var chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(1+12);
+
+  chunk[8] = ri;
+
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.SRGB, chunk);
 };
 
 /**
@@ -945,46 +1085,67 @@ CanvasTool.PngEncoder.prototype.makesRGB_ = function(ri) {
  *   compressionMethod: !CanvasTool.PngEncoder.CompressionMethod,
  *   profile: !Array
  * }} iccp ICCP プロファイル.
- * @return {!Array} iCCP チャンク byte array.
+ * @return {ByteArray} iCCP チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeiCCP_ = function(iccp) {
-  var data = [],
-      namearray, c, i, l;
+  /** @type {Array.<number>} */
+  var data;
+  /** @type {ByteArray} */
+  var chunk;
+  /** @type {ByteArray} */
+  var namearray;
+  /** @type {number} */
+  var i;
+  /** @type {number} */
+  var length;
+  /** @type {ByteArray} */
+  var compressed;
+  /** @type {number} */
+  var pos = 8;
 
   // profile name
-  namearray = bytearray_(iccp.name);
-  l = namearray.length;
-  if (l > 79) {
+  namearray = bytearray_(iccp['name']);
+  length = namearray.length;
+  if (length > 79) {
     throw new Error('ICCP Profile name is over 79 characters');
   }
-  for (i = 0; i < l; i++) {
+  for (i = 0; i < length; i++) {
     if (!isLatin1Printable_(namearray[i])) {
       throw new Error('wrong iccp profile name.');
     }
   }
-  push_(data, namearray);
+  data =
+    /** @type {Array.<number>} */
+    (USE_TYPEDARRAY ? Array.prototype.slice.call(namearray) : namearray);
 
   // null separator
   data.push(0);
 
   // compression method
-  data.push(iccp.compressionMethod);
+  data.push(iccp['compressionMethod']);
 
   // profile
-  switch (iccp.compressionMethod) {
+  switch (iccp['compressionMethod']) {
     case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-      push_(data, new Zlib.Deflate(iccp.profile, this.deflateOption).compress());
+      compressed =
+        new Zlib.Deflate(iccp['profile'], this.deflateOption).compress();
       break;
     default:
       throw new Error('unknown ICC Profile compression method');
       break;
   }
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.ICCP,
-    data
-  );
+  if (USE_TYPEDARRAY) {
+    chunk = new Uint8Array(data.length + compressed.length + 12);
+    chunk.set(data, pos); pos += data.length;
+    chunk.set(compressed, pos);
+  } else {
+    chunk = [0, 0, 0, 0, 0, 0, 0, 0].concat(data, compressed);
+    chunk.length += 4;
+  }
+
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.ICCP, chunk);
 };
 
 /**
@@ -994,14 +1155,21 @@ CanvasTool.PngEncoder.prototype.makeiCCP_ = function(iccp) {
  *     それ以外では Red, Green, Blue (0-65535) の順に格納された配列.
  *     ビット深度が16未満の際は下位ビットのみ使用される.
  * @param {!Array.<number>} palette Indexed-Colour の際に使用するパレット配列.
- * @return {!Array.<number>} bKGD チャンク byte array.
+ * @return {ByteArray} bKGD チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makebKGD_ =
 function(backgroundColour, palette) {
-  var data = [],
-      paletteIndex = null,
-      i, l;
+  /** @type {ByteArray} */
+  var data;
+  /** @type {?number} */
+  var paletteIndex = null;
+  /** @type {number} */
+  var i;
+  /** @type {number} */
+  var il;
+  /** @type {number} */
+  var pos = 8;
 
   switch (this.colourType) {
     case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
@@ -1010,7 +1178,9 @@ function(backgroundColour, palette) {
       if (backgroundColour.length !== 1) {
         throw new Error('wrong background-color length');
       }
-      push_(data, this.networkByteOrder_(backgroundColour[0], 2));
+      data = new (USE_TYPEDARRAY ? Uint8Array : Array)(2+12);
+      data[pos++] = (backgroundColour[0] >> 8) & 0xff;
+      data[pos  ] = (backgroundColour[0]     ) & 0xff;
       break;
     case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
     case CanvasTool.PngEncoder.ColourType.TRUECOLOR_WITH_ALPHA:
@@ -1018,9 +1188,13 @@ function(backgroundColour, palette) {
       if (backgroundColour.length !== 3) {
         throw new Error('wrong background-color length');
       }
-      push_(data, this.networkByteOrder_(backgroundColour[0], 2));
-      push_(data, this.networkByteOrder_(backgroundColour[1], 2));
-      push_(data, this.networkByteOrder_(backgroundColour[2], 2));
+      data = new (USE_TYPEDARRAY ? Uint8Array : Array)(6+12);
+      data[pos++] = (backgroundColour[0] >> 8) & 0xff;
+      data[pos++] = (backgroundColour[0]     ) & 0xff;
+      data[pos++] = (backgroundColour[1] >> 8) & 0xff;
+      data[pos++] = (backgroundColour[1]     ) & 0xff;
+      data[pos++] = (backgroundColour[2] >> 8) & 0xff;
+      data[pos  ] = (backgroundColour[2]     ) & 0xff;
       break;
     case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
       // red, green, blue
@@ -1028,7 +1202,7 @@ function(backgroundColour, palette) {
         throw new Error('wrong background-color length');
       }
       // palette index
-      for (i = 0, l = palette.length; i < l; i += 3) {
+      for (i = 0, il = palette.length; i < il; i += 3) {
         if (palette[i + 0] === backgroundColour[0] &&
             palette[i + 1] === backgroundColour[1] &&
             palette[i + 2] === backgroundColour[2]) {
@@ -1041,44 +1215,47 @@ function(backgroundColour, palette) {
       if (paletteIndex === null) {
         return [];
       }
-      data.push(paletteIndex);
+      data = new (USE_TYPEDARRAY ? Uint8Array : Array)(1+12);
+      data[pos] = paletteIndex;
       break;
     default:
       throw new Error('unknown colour type');
   }
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.BKGD,
-    data
-  );
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.BKGD, data);
 };
 
 /**
  * Image Histogram
  * @param {!Array.<number>} hist パレットエントリ毎の出現回数配列.
- * @return {!Array.<number>} hIST チャンク byte array.
+ * @return {ByteArray} hIST チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makehIST_ = function(hist) {
-  var data = [],
-      max = max_(hist),
-      h = 0,
-      i = 0,
-      l = hist.length;
+  /** @type {ByteArray} */
+  var chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(hist.length * 2 + 12);
+  /** @type {number} */
+  var max = max_(hist);
+  /** @type {number} */
+  var h;
+  /** @type {number} */
+  var i;
+  /** @type {number} */
+  var il = hist.length;
+  /** @type {number} */
+  var pos = 8;
 
   // make histogram
-  for (; i < l; i++) {
+  for (i = 0; i < il; i++) {
     // 0 は出現していない色のみであるべきなので 1 回でも出現したものは
     // 1-65535 の範囲に分布する必要がある.
     h = hist[i];
     h = (h === 0) ? 0 : (h / max * (0xffff - 1) + 1) + 0.5 | 0;
-    push_(data, this.networkByteOrder_(h, 2));
+    chunk[pos++] = (h >> 8) & 0xff;
+    chunk[pos++] = (h     ) & 0xff;
   }
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.HIST,
-    data
-  );
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.HIST, chunk);
 };
 
 /**
@@ -1088,39 +1265,48 @@ CanvasTool.PngEncoder.prototype.makehIST_ = function(hist) {
  *   num: number
  * }} splt sPLT 設定オブジェクト.
  * @param {!Array.<number>} hist パレットエントリ毎の出現回数配列.
- * @return {!Array.<number>} sPLT チャンク byte array.
+ * @return {ByteArray} sPLT チャンク byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makesPLT_ = function(splt, hist) {
-  var data = [],
-      sortedHist,
-      max = 0,
-      i = 0,
-      l = splt.num < 0 ? hist.length : splt.num,
-      freq = 0,
-      red, green, blue, alpha;
+  /** @type {Array.<number>} */
+  var data;
+  /** @type {number} */
+  var sortedHist;
+  /** @type {ByteArray};
+  var name;
+  /** @type {number} */
+  var max;
+  /** @type {number} */
+  var i;
+  /** @type {number} */
+  var il = splt['num'] < 0 ? hist.length : splt['num'];
+  /** @type {number} */
+  var freq = 0;
+  /** @type {number} */
+  var pos = 8;
 
   // チャンクを付与しない
-  if (l === 0) {
+  if (il === 0) {
     return [];
   }
 
   // name
-  push_(data, bytearray_(splt.name));
+  data = [0, 0, 0, 0, 0, 0, 0, 0].concat(bytearray_(splt['name']));
 
   // null separator
-  data.push(0);
+  data[pos++] = 0;
 
   // sample depth, RGBA value
   switch (this.bitDepth) {
     case 16:
-      data.push(16);
+      data[pos++] = 16;
       break;
     case 8:
     case 4:
     case 2:
     case 1:
-      data.push(8);
+      data[pos++] = 8;
       break;
     default:
       throw new Error('invalid bit depth');
@@ -1135,25 +1321,29 @@ CanvasTool.PngEncoder.prototype.makesPLT_ = function(splt, hist) {
   max = sortedHist[0].count;
 
   // make histogram
-  for (; i < l; i++) {
+  for (i = 0; i < il; ++i) {
     hist = sortedHist[i];
 
     switch (this.bitDepth) {
       // RGBA
       case 16:
-        push_(data, this.networkByteOrder_(hist.red << 8 | hist.red, 2));
-        push_(data, this.networkByteOrder_(hist.green << 8 | hist.green, 2));
-        push_(data, this.networkByteOrder_(hist.blue << 8 | hist.blue, 2));
-        push_(data, this.networkByteOrder_(hist.alpha << 8 | hist.alpha, 2));
+        data[pos++] = hist.red   & 0xff;
+        data[pos++] = hist.red   & 0xff;
+        data[pos++] = hist.green & 0xff;
+        data[pos++] = hist.green & 0xff;
+        data[pos++] = hist.blue  & 0xff;
+        data[pos++] = hist.blue  & 0xff;
+        data[pos++] = hist.alpha & 0xff;
+        data[pos++] = hist.alpha & 0xff;
         break;
       case 8:
       case 4:
       case 2:
       case 1:
-        data.push(hist.red);
-        data.push(hist.green);
-        data.push(hist.blue);
-        data.push(hist.alpha);
+        data[pos++] = hist.red   & 0xff;
+        data[pos++] = hist.green & 0xff;
+        data[pos++] = hist.blue  & 0xff;
+        data[pos++] = hist.alpha & 0xff;
         break;
       default:
         throw new Error('invalid bit depth');
@@ -1161,30 +1351,43 @@ CanvasTool.PngEncoder.prototype.makesPLT_ = function(splt, hist) {
 
     // freq: 0-65535 の範囲にする
     freq = hist.count / max * 0xffff + 0.5 | 0;
-    push_(data, this.networkByteOrder_(freq, 2));
+    data[pos++] = (freq >> 8) & 0xff;
+    data[pos++] = (freq     ) & 0xff;
   }
+
+  data.length += 4;
+
 
   return this.makeChunk_(
     CanvasTool.PngEncoder.ChunkType.SPLT,
-    data
+    USE_TYPEDARRAY ? new Uint8Array(data) : data
   );
 };
 
 /**
  * Palette
  * @param {!Array} palette パレット配列.
- * @return {!Array} PLTE チャンクバイナリ byte array.
+ * @return {ByteArray} PLTE チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makePLTE_ = function(palette) {
+  /** @type {ByteArray} */
+  var chunk;
+
   if (palette.length / 3 > 256) {
     throw new Error('over 256 colors: ' + (palette.length / 3));
   }
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.PLTE,
-    palette
-  );
+  if (USE_TYPEDARRAY) {
+    chunk = new Uint8Array(palette.length + 12);
+    chunk.set(palette, 8);
+  } else {
+    chunk = palette;
+    chunk.unshift(0, 0, 0, 0, 0, 0, 0, 0);
+    chunk.length += 8;
+  }
+
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.PLTE, chunk);
 };
 
 /**
@@ -1194,20 +1397,28 @@ CanvasTool.PngEncoder.prototype.makePLTE_ = function(palette) {
  *   y: number,
  *   unit: CanvasTool.PngEncoder.UnitSpecifier
  * }} phys phisical pixel dimensions settings.
- * @return {!Array} pHYs チャンクバイナリ byte array.
+ * @return {ByteArray} pHYs チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makepHYs_ = function(phys) {
-  var data = [];
+  /** @type {ByteArray} */
+  var chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(9+12);
+  /** @type {number} */
+  var pos = 8;
 
-  push_(data, this.networkByteOrder_(phys.x, 4));
-  push_(data, this.networkByteOrder_(phys.y, 4));
-  data.push(phys.unit);
+  chunk[pos++] = (phys['x'] >> 24) & 0xff;
+  chunk[pos++] = (phys['x'] >> 16) & 0xff;
+  chunk[pos++] = (phys['x'] >>  8) & 0xff;
+  chunk[pos++] = (phys['x']      ) & 0xff;
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.PHYS,
-    data
-  );
+  chunk[pos++] = (phys['y'] >> 24) & 0xff;
+  chunk[pos++] = (phys['y'] >> 16) & 0xff;
+  chunk[pos++] = (phys['y'] >>  8) & 0xff;
+  chunk[pos++] = (phys['y']      ) & 0xff;
+
+  chunk[pos] = phys['unit'];
+
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.PHYS, chunk);
 };
 
 /**
@@ -1215,26 +1426,40 @@ CanvasTool.PngEncoder.prototype.makepHYs_ = function(phys) {
  * @param {?{
  *   keyword: string,
  *   text: string
- * }} text text data.
- * @return {!Array} tEXt チャンクバイナリ byte array.
+ * }} textData text data.
+ * @return {ByteArray} tEXt チャンクバイナリ byte array.
  * @private
  */
-CanvasTool.PngEncoder.prototype.maketEXt_ = function(text) {
-  var data = [];
+CanvasTool.PngEncoder.prototype.maketEXt_ = function(textData) {
+  /** @type {ByteArray} */
+  var keyword = bytearray_(textData['keyword']);
+  /** @type {ByteArray} */
+  var text = bytearray_(textData['text']);
+  /** @type {ByteArray} */
+  var chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(
+    keyword.length + text.length + 1 + 12
+  );
+  /** @type {number} */
+  var pos = 8;
+  /** @type {number} */
+  var i;
+  /** @type {number} */
+  var il;
 
   // keyword
-  push_(data, bytearray_(text.keyword));
+  for (i = 0, il = keyword.length; i < il; ++i) {
+    chunk[pos++] = keyword[i];
+  }
 
   // null separator
-  data.push(0);
+  chunk[pos++] = 0;
 
   // text string
-  push_(data, bytearray_(text.text));
+  for (i = 0, il = text.length; i < il; ++i) {
+    chunk[pos++] = text[i];
+  }
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.TEXT,
-    data
-  );
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.TEXT, chunk);
 };
 
 
@@ -1244,36 +1469,51 @@ CanvasTool.PngEncoder.prototype.maketEXt_ = function(text) {
  *   keyword: string,
  *   text: string,
  *   compressionMethod: CanvasTool.PngEncoder.CompressionMethod
- * }} text text data.
- * @return {!Array} zTXt チャンクバイナリ byte array.
+ * }} textData text data.
+ * @return {ByteArray} zTXt チャンクバイナリ byte array.
  * @private
  */
-CanvasTool.PngEncoder.prototype.makezTXt_ = function(text) {
-  var data = [];
+CanvasTool.PngEncoder.prototype.makezTXt_ = function(textData) {
+  /** @type {Array.<number>} */
+  var data;
+  /** @type {ByteArray} */
+  var compressed;
+  /** @type {ByteArray} */
+  var chunk;
+  /** @type {ByteArray} */
+  var text = bytearray_(textData['text']);
+  /** @type {ByteArray} */
+  var keyword = bytearray_(textData['keyword']);
 
-  // keyword
-  push_(data, bytearray_(text.keyword));
-
-  // null separator
-  data.push(0);
-
-  // compression method
-  data.push(text.compressionMethod);
+  data = [0, 0, 0, 0, 0, 0, 0, 0].concat(
+    // keyword
+    USE_TYPEDARRAY ? Array.prototype.slice.call(keyword) : keyword,
+    // null separator
+    0,
+    // compression method
+    textData['compressionMethod']
+  );
 
   // data
-  switch (text.compressionMethod) {
+  switch (textData['compressionMethod']) {
     case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-      push_(data, new Zlib.Deflate(bytearray_(text.text), this.deflateOption).compress());
+      compressed = new Zlib.Deflate(text, this.deflateOption).compress();
       break;
     default:
       throw new Error('unknown compression method');
       break;
   }
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.ZTXT,
-    data
-  );
+  if (USE_TYPEDARRAY) {
+    chunk = new Uint8Array(data.length + compressed.length + 4);
+    chunk.set(data);
+    chunk.set(compressed, data.length);
+  } else {
+    chunk = data.concat(compressed);
+    chunk.length += 4;
+  }
+
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.ZTXT, chunk);
 };
 
 /**
@@ -1284,31 +1524,44 @@ CanvasTool.PngEncoder.prototype.makezTXt_ = function(text) {
  *   lang: string,
  *   translatedKeyword: string,
  *   compressionMethod: ?CanvasTool.PngEncoder.CompressionMethod
- * }} text text data.
- * @return {!Array} iTXt チャンクバイナリ byte array.
+ * }} textData text data.
+ * @return {ByteArray} iTXt チャンクバイナリ byte array.
  * @private
  */
-CanvasTool.PngEncoder.prototype.makeiTXt_ = function(text) {
-  var data = [], compressedText;
+CanvasTool.PngEncoder.prototype.makeiTXt_ = function(textData) {
+  /** @type {Array.<number>} */
+  var data;
+  /** @type {ByteArray} */
+  var keyword = bytearray_(textData['keyword']);
+  /** @type {ByteArray} */
+  var compressedText;
+  /** @type {ByteArray} */
+  var chunk;
+  /** @type {number} */
+  var pos = 8;
 
   // keyword
-  push_(data, bytearray_(text.keyword));
+  data =
+    /** @type {Array.<number>} */
+    (USE_TYPEDARRAY ? Array.prototype.slice.call(keyword) : keyword);
 
   // null separator
   data.push(0);
 
-  if (typeof(text.compressionMethod) === 'number') {
+  if (typeof(textData['compressionMethod']) === 'number') {
     // compression flag
     data.push(CanvasTool.PngEncoder.CompressionFlag.COMPRESSED);
 
     // compression method
-    data.push(text.compressionMethod);
+    data.push(textData['compressionMethod']);
 
     // text compression
-    switch (text.compressionMethod) {
+    switch (textData['compressionMethod']) {
       case CanvasTool.PngEncoder.CompressionMethod.DEFLATE:
-        compressedText = new
-          Zlib.Deflate(bytearray_(utf8_(text.text)), this.deflateOption).compress();
+        compressedText = new Zlib.Deflate(
+          bytearray_(utf8_(textData['text'])),
+          this.deflateOption
+        ).compress();
         break;
       default:
         throw new Error('unknown compression method');
@@ -1321,68 +1574,73 @@ CanvasTool.PngEncoder.prototype.makeiTXt_ = function(text) {
     data.push(0);
 
     // text
-    compressedText = bytearray_(utf8_(text.text));
+    compressedText = bytearray_(utf8_(textData['text']));
   }
 
   // language tag
-  push_(data, bytearray_(text.lang));
+  data = data.concat(bytearray_(textData['lang']));
 
   // null separator
   data.push(0);
 
   // translated keyword
-  if (typeof(text.translatedKeyword) === 'string') {
-    push_(data, bytearray_(utf8_(text.translatedKeyword)));
+  if (typeof(textData['translatedKeyword']) === 'string') {
+    data = data.concat(bytearray_(utf8_(textData['translatedKeyword'])));
   }
 
   // null separator
   data.push(0);
 
   // text
-  push_(data, compressedText);
+  if (USE_TYPEDARRAY) {
+    chunk = new Uint8Array(data.length + compressedText.length + 12);
+    chunk.set(data, pos); pos += data.length;
+    chunk.set(compressedText, pos);
+  } else {
+    chunk = [0, 0, 0, 0, 0, 0, 0, 0].concat(data, compressedText);
+    chunk.length += 4;
+  }
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.ITXT,
-    data
-  );
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.ITXT, chunk);
 };
 
 
 /**
  * Image last-modification time
  * @param {Date} time last-modification time.
- * @return {!Array} tIME チャンクバイナリ byte array.
+ * @return {ByteArray} tIME チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.maketIME_ = function(time) {
-  var data = [];
+  /** @type {ByteArray} */
+  var chunk = new (USE_TYPEDARRAY ? Uint8Array : Array)(7+12);
+  /** @type {number} */
+  var pos = 8;
 
-  push_(data, this.networkByteOrder_(time.getUTCFullYear(), 2));
-  data.push(time.getUTCMonth() + 1);
-  data.push(time.getUTCDate());
-  data.push(time.getUTCHours());
-  data.push(time.getUTCMinutes());
-  data.push(time.getUTCSeconds());
+  chunk[pos++] = (time.getUTCFullYear() >> 8) & 0xff;
+  chunk[pos++] = (time.getUTCFullYear()     ) & 0xff;
+  chunk[pos++] = time.getUTCMonth() + 1;
+  chunk[pos++] = time.getUTCDate();
+  chunk[pos++] = time.getUTCHours();
+  chunk[pos++] = time.getUTCMinutes();
+  chunk[pos  ] = time.getUTCSeconds();
 
-  return this.makeChunk_(
-    CanvasTool.PngEncoder.ChunkType.TIME,
-    data
-  );
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.TIME, chunk);
 };
 
 /**
  * Image Data
  * @param {!Array} pixelArray イメージのバイナリ配列.
- * @return {!Array} IDAT チャンクバイナリ Array.
+ * @return {ByteArray} IDAT チャンクバイナリ Array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeIDAT_ = function(pixelArray) {
   var idat = [],
       filterMethod = this.filterMethod,
       filterType = this.filterType,
-      interlaceMethod = this.interlaceMethod,
       width, y, lines, line, bpp,
       passlist, pass, index, length;
+  var chunk;
 
   // インターレースの決定
   this.interlace_ = this.getInterlace_();
@@ -1439,16 +1697,29 @@ CanvasTool.PngEncoder.prototype.makeIDAT_ = function(pixelArray) {
       throw new Error('unknown compression method');
   }
 
-  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.IDAT, idat);
+  // chunk
+  if (USE_TYPEDARRAY) {
+    chunk = new Uint8Array(idat.length + 12);
+    chunk.set(idat, 8);
+  } else {
+    chunk = idat;
+    chunk.unshift(0, 0, 0, 0, 0, 0, 0, 0);
+    chunk.length += 4;
+  }
+
+  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.IDAT, chunk);
 };
 
 /**
  * Image End
- * @return {!Array} IEND チャンクバイナリ Array.
+ * @return {ByteArray} IEND チャンクバイナリ Array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeIEND_ = function() {
-  return this.makeChunk_(CanvasTool.PngEncoder.ChunkType.IEND, []);
+  return this.makeChunk_(
+    CanvasTool.PngEncoder.ChunkType.IEND,
+    new (USE_TYPEDARRAY ? Uint8Array : Array)(12)
+  );
 };
 
 /**
@@ -1457,23 +1728,39 @@ CanvasTool.PngEncoder.prototype.makeIEND_ = function() {
  *     Indexed-Color では Palette に対応するα値の配列,
  *     Grayscale では透明として扱うグレーレベルを [Gray],
  *     Truecolor では透明として扱う色を [Red, Green, Blue] で指定.
- * @return {!Array.<number>} tRNS チャンクバイナリ byte array.
+ * @return {ByteArray} tRNS チャンクバイナリ byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.maketRNS_ = function(alpha) {
-  var data = [], i;
+  /** @type {ByteArray} */
+  var data;
+  /** @type {number} */
+  var pos = 8;
 
   switch (this.colourType) {
     case CanvasTool.PngEncoder.ColourType.GRAYSCALE:
-      push_(data, this.networkByteOrder_(alpha[0], 2));
+      data = new (USE_TYPEDARRAY ? Uint8Array : Array)(2+12);
+      data[pos++] = (alpha[0] >> 8) & 0xff;
+      data[pos++] = (alpha[0]     ) & 0xff;
       break;
     case CanvasTool.PngEncoder.ColourType.TRUECOLOR:
-      push_(data, this.networkByteOrder_(alpha[0], 2));
-      push_(data, this.networkByteOrder_(alpha[1], 2));
-      push_(data, this.networkByteOrder_(alpha[2], 2));
+      data = new (USE_TYPEDARRAY ? Uint8Array : Array)(6+12);
+      data[pos++] = (alpha[0] >> 8) & 0xff;
+      data[pos++] = (alpha[0]     ) & 0xff;
+      data[pos++] = (alpha[1] >> 8) & 0xff;
+      data[pos++] = (alpha[1]     ) & 0xff;
+      data[pos++] = (alpha[2] >> 8) & 0xff;
+      data[pos++] = (alpha[2]     ) & 0xff;
       break;
     case CanvasTool.PngEncoder.ColourType.INDEXED_COLOR:
-      data = alpha;
+      data = new (USE_TYPEDARRAY ? Uint8Array : Array)(alpha.length+12);
+      if (USE_TYPEDARRAY) {
+        data.set(alpha, pos);
+      } else {
+        data = alpha;
+        data.unshift(0, 0, 0, 0, 0, 0, 0, 0);
+        data.length += 4;
+      }
       break;
     default:
       throw new Error('invalid colour type');
@@ -1632,10 +1919,11 @@ CanvasTool.PngEncoder.prototype.interlaceAdam7_ = function(pixelArray) {
 
 /**
  * Pixel Array to Byte Array
- * @param {!(Array|CanvasPixelArray)} pixelArray canvas pixel array like.
- * @return {!Array} pixel byte array.
+ * @param {ByteArray} pixelArray canvas pixel array like.
+ * @return {ByteArray} pixel byte array.
  */
 CanvasTool.PngEncoder.prototype.pixelArrayToByteArray_ = function(pixelArray) {
+  // TODO: サイズ予測可能
   var byteArray = [], pixel, color,
       index, length, pIndex, pLength,
       depth = this.bitDepth, colourType = this.colourType, sep, current;
@@ -1670,7 +1958,7 @@ CanvasTool.PngEncoder.prototype.pixelArrayToByteArray_ = function(pixelArray) {
 
 /**
  * フィルタメソッドの取得
- * @return {function(!Array.<number>, number):!Array} フィルタメソッド.
+ * @return {function(ByteArray.<number>, number):ByteArray} フィルタメソッド.
  * @private
  */
 CanvasTool.PngEncoder.prototype.getFilter_ = function() {
@@ -1707,9 +1995,9 @@ CanvasTool.PngEncoder.prototype.getFilter_ = function() {
 
 /**
  * Filter None
- * @param {!Array.<number>} lineByteArray line byte array.
+ * @param {ByteArray} lineByteArray line byte array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {!Array} filtered line byte array.
+ * @return {ByteArray} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterNone_ = function(lineByteArray, sub) {
@@ -1722,9 +2010,9 @@ CanvasTool.PngEncoder.prototype.filterNone_ = function(lineByteArray, sub) {
 
 /**
  * Filter Sub
- * @param {!Array.<number>} lineByteArray line array.
+ * @param {ByteArray} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {!Array} filtered line byte array.
+ * @return {ByteArray} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterSub_ = function(lineByteArray, sub) {
@@ -1740,9 +2028,9 @@ CanvasTool.PngEncoder.prototype.filterSub_ = function(lineByteArray, sub) {
 
 /**
  * Filter Up
- * @param {!Array.<number>} lineByteArray line array.
+ * @param {ByteArray} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {!Array} filtered line byte array.
+ * @return {ByteArray} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterUp_ = function(lineByteArray, sub) {
@@ -1758,9 +2046,9 @@ CanvasTool.PngEncoder.prototype.filterUp_ = function(lineByteArray, sub) {
 
 /**
  * Filter Average
- * @param {!Array.<number>} lineByteArray line array.
+ * @param {ByteArray} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {!Array} filtered line byte array.
+ * @return {ByteArray} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterAverage_ = function(lineByteArray, sub) {
@@ -1781,9 +2069,9 @@ CanvasTool.PngEncoder.prototype.filterAverage_ = function(lineByteArray, sub) {
 
 /**
  * Filter Paeth
- * @param {!Array.<number>} lineByteArray line array.
+ * @param {ByteArray} lineByteArray line array.
  * @param {number} sub 左のピクセルとの距離.
- * @return {!Array} filtered line byte array.
+ * @return {ByteArray} filtered line byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.filterPaeth_ = function(lineByteArray, sub) {
@@ -1828,7 +2116,7 @@ CanvasTool.PngEncoder.prototype.paethPredictor_ = function(a, b, c) {
  * @param {!(Array|Object)} arraylike slice の対象となる Array 風のオブジェクト.
  * @param {number} start 開始 index.
  * @param {number} length 切り出す長さ.
- * @return {!Array} 指定した範囲の新しい配列.
+ * @return {ByteArray} 指定した範囲の新しい配列.
  * @private
  */
 CanvasTool.PngEncoder.prototype.slice_ = function(arraylike, start, length) {
@@ -1839,26 +2127,38 @@ CanvasTool.PngEncoder.prototype.slice_ = function(arraylike, start, length) {
 
 /**
  * チャンクの作成
- * @param {!CanvasTool.PngEncoder.ChunkType} type Chunk type.
- * @param {!(Array|Uint8Array)} data Chunk data byte array.
- * @return {!Array} Chunk byte array.
+ * @param {CanvasTool.PngEncoder.ChunkType} type Chunk type.
+ * @param {ByteArray} data.
+ * @return {ByteArray} Chunk byte array.
  * @private
  */
 CanvasTool.PngEncoder.prototype.makeChunk_ = function(type, data) {
-  var chunk = [], length = data.length, crcTarget = [];
+  /** @type {number} */
+  var length = data.length - 12;
+  /** @type {number} */
+  var pos = 0;
+  /** @type {number} */
+  var crc;
 
   // Length
-  push_(chunk, this.networkByteOrder_(length, 4));
+  data[pos++] = (length >> 24) & 0xff;
+  data[pos++] = (length >> 16) & 0xff;
+  data[pos++] = (length >>  8) & 0xff;
+  data[pos++] = (length      ) & 0xff;
   // Type
-  push_(chunk, type);
-  // Data
-  push_(chunk, data);
+  data[pos++] = type[0];
+  data[pos++] = type[1];
+  data[pos++] = type[2];
+  data[pos++] = type[3];
   // CRC
-  push_(crcTarget, type);
-  push_(crcTarget, data);
-  push_(chunk, this.networkByteOrder_(Zlib.CRC32.calc(crcTarget), 4));
+  crc = Zlib.CRC32.calc(data, 4, 4 + length);
+  pos = data.length - 4;
+  data[pos++] = (crc >> 24) & 0xff;
+  data[pos++] = (crc >> 16) & 0xff;
+  data[pos++] = (crc >>  8) & 0xff;
+  data[pos  ] = (crc      ) & 0xff;
 
-  return chunk;
+  return data;
 };
 
 /**
@@ -1895,36 +2195,42 @@ CanvasTool.PngEncoder.prototype.networkByteOrder_ = function(number, size) {
  * @return {number} 輝度 (0-255).
  * @private
  */
-CanvasTool.PngEncoder.prototype.rgb2y_ = function(red, green, blue) {
+function rgb2y_(red, green, blue) {
+  /** @type {number} */
   var y;
 
-  y = red * CanvasTool.PngEncoder.RedWeight_ +
-      green * CanvasTool.PngEncoder.GreenWeight_ +
-      blue * CanvasTool.PngEncoder.BlueWeight_ +
+  y = red * CanvasTool.PngEncoder.RedWeight +
+      green * CanvasTool.PngEncoder.GreenWeight +
+      blue * CanvasTool.PngEncoder.BlueWeight +
       0.0001; // 丸め
 
   return (y > 255 ? 255 : y) | 0;
-};
+}
 
 /**
- * [R, G, B(, A)]の形に並んでいる配列からバイナリ文字列に変換する
- * @param {!Array.<number>} color [R, G, B(, A)]形式の配列.
+ * RGB からバイナリ文字列に変換する
+ * @param {number} red red.
+ * @param {number} green green.
+ * @param {number} blue blue.
  * @return {string} 変換されたバイナリ文字列.
  * @private
  */
-CanvasTool.PngEncoder.prototype.rgb2str_ = function(color) {
-  return color.slice(0, 3).map(this.fromCharCode_).join('');
-};
+function rgb2str_(red, green, blue) {
+  return String.fromCharCode(red, green, blue);
+}
 
 /**
- * [R, G, B, A]の形に並んでいる配列からバイナリ文字列に変換する
- * @param {!Array.<number>} color [R, G, B, A]形式の配列.
+ * RGBA からバイナリ文字列に変換する
+ * @param {number} red red.
+ * @param {number} green green.
+ * @param {number} blue blue.
+ * @param {number} alpha alpha.
  * @return {string} 変換されたバイナリ文字列.
  * @private
  */
-CanvasTool.PngEncoder.prototype.rgba2str_ = function(color) {
-  return color.map(this.fromCharCode_).join('');
-};
+function rgba2str_(red, green, blue, alpha) {
+  return String.fromCharCode(red, green, blue, alpha);
+}
 
 /**
  * XXX: 必要?
@@ -1940,8 +2246,8 @@ CanvasTool.PngEncoder.prototype.fromCharCode_ = function(code) {
 
 /**
  * 配列の末尾への結合を破壊的に行う.
- * @param {!Array} dst 結合先となる配列.
- * @param {!(Array|Uint8Array)} src 結合元となる配列.
+ * @param {ByteArray} dst 結合先となる配列.
+ * @param {ByteArray} src 結合元となる配列.
  */
 function push_(dst, src) {
   var i = 0, dl = src.length, sl = src.length, pushImpl = (!!dst.push);
@@ -1960,16 +2266,57 @@ function push_(dst, src) {
 }
 
 /**
+ * ByteArray 配列の結合
+ * @param {Array.<ByteArray>} array
+ * @return {ByteArray}
+ * @private
+ */
+function concat_(array) {
+  /** @type {number} */
+  var i;
+  /** @type {number} */
+  var il;
+  /** @type {ByteArray} */
+  var result;
+  /** @type {number} */
+  var resultLength;
+  /** @type {number} */
+  var pos;
+
+  if (USE_TYPEDARRAY) {
+    for (i = 0, il = array.length, resultLength = 0; i < il; ++i) {
+      resultLength += array[i].length;
+    }
+
+    result = new Uint8Array(resultLength);
+    for (i = 0, pos = 0; i < il; ++i) {
+      result.set(array[i], pos);
+      pos += array[i].length;
+    }
+
+    return result;
+  } else {
+    return Array.prototype.concat.apply([], array);
+  }
+}
+
+/**
  * 文字列から bytearray への変換
  * @param {string} str byte array に変換する文字列.
- * @return {!Array.<number>} 変換した byte array.
+ * @return {ByteArray} 変換した byte array.
  * @private
  */
 function bytearray_(str) {
-  var srcarray = str.split(''),
-      bytearray = [], i, l;
+  /** @type {Array.<string>} */
+  var srcarray = str.split('');
+  /** @type {number} */
+  var i;
+  /** @type {number} */
+  var il = srcarray.length;
+  /** @type {ByteArray} */
+  var bytearray = new (USE_TYPEDARRAY ? Uint8Array : Array)(il);
 
-  for (i = 0, l = srcarray.length; i < l; i++) {
+  for (i = 0; i < il; ++i) {
     bytearray[i] = srcarray[i].charCodeAt(0);
   }
 
@@ -2096,6 +2443,14 @@ if (!CanvasTool.PngEncoder.NO_EXPORT) {
     {
       'NONE': CanvasTool.PngEncoder.InterlaceMethod.NONE,
       'ADAM7': CanvasTool.PngEncoder.InterlaceMethod.ADAM7
+    }
+  );
+
+  exportEnum(
+    'CanvasTool.PngEncoder.CompressionFlag',
+    {
+      'UNCOMPRESSED': CanvasTool.PngEncoder.CompressionFlag.UNCOMPRESSED,
+      'COMPRESSED': CanvasTool.PngEncoder.CompressionFlag.COMPRESSED
     }
   );
 
